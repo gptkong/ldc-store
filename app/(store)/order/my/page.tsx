@@ -1,41 +1,25 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { queryOrder } from "@/lib/actions/orders";
+import { useEffect, useState, useTransition } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { getUserOrders } from "@/lib/actions/orders";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 import { toast } from "sonner";
 import {
   Loader2,
-  Search,
   Package,
   Copy,
   CheckCircle2,
   Clock,
   XCircle,
   AlertCircle,
+  ShoppingBag,
+  RefreshCw,
 } from "lucide-react";
-
-const queryFormSchema = z.object({
-  orderNoOrEmail: z.string().min(1, "请输入订单号或邮箱"),
-  queryPassword: z.string().min(1, "请输入查询密码"),
-});
-
-type QueryFormValues = z.infer<typeof queryFormSchema>;
+import Link from "next/link";
 
 interface OrderData {
   orderNo: string;
@@ -80,32 +64,39 @@ const statusConfig: Record<
   },
 };
 
-export default function OrderQueryPage() {
+export default function MyOrdersPage() {
+  const { data: session, status: sessionStatus } = useSession();
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [orders, setOrders] = useState<OrderData[] | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const form = useForm<QueryFormValues>({
-    resolver: zodResolver(queryFormSchema),
-    defaultValues: {
-      orderNoOrEmail: "",
-      queryPassword: "",
-    },
-  });
+  // 检查是否是 Linux DO 登录用户
+  const user = session?.user as { provider?: string } | undefined;
+  const isLoggedIn = user?.provider === "linux-do";
 
-  const onSubmit = (values: QueryFormValues) => {
+  useEffect(() => {
+    if (sessionStatus === "loading") return;
+
+    if (!isLoggedIn) {
+      router.push("/");
+      return;
+    }
+
+    loadOrders();
+  }, [sessionStatus, isLoggedIn, router]);
+
+  const loadOrders = () => {
+    setIsLoading(true);
     startTransition(async () => {
-      const result = await queryOrder(values.orderNoOrEmail, values.queryPassword);
-
+      const result = await getUserOrders();
       if (result.success) {
-        // 统一转换为数组格式
-        const orderList = Array.isArray(result.data) ? result.data : [result.data];
-        setOrders(orderList as OrderData[]);
-        toast.success("查询成功");
+        setOrders(result.data as OrderData[]);
       } else {
-        toast.error(result.message);
-        setOrders(null);
+        toast.error(result.message || "获取订单失败");
       }
+      setIsLoading(false);
     });
   };
 
@@ -120,93 +111,52 @@ export default function OrderQueryPage() {
     }
   };
 
+  if (sessionStatus === "loading" || isLoading) {
+    return (
+      <div className="container mx-auto max-w-2xl px-4 py-12">
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="mt-4 text-muted-foreground">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return null;
+  }
+
   return (
     <div className="container mx-auto max-w-2xl px-4 py-12">
-      <div className="mb-8 text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600">
-          <Search className="h-8 w-8 text-white" />
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600">
+            <ShoppingBag className="h-8 w-8 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+            我的订单
+          </h1>
+          <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+            查看您的历史订单和卡密信息
+          </p>
         </div>
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-          订单查询
-        </h1>
-        <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-          输入订单号或邮箱查询您的订单详情和卡密
-        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={loadOrders}
+          disabled={isPending}
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${isPending ? "animate-spin" : ""}`} />
+          刷新
+        </Button>
       </div>
 
-      {/* Query Form */}
-      <Card className="mb-8">
-        <CardContent className="pt-6">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="orderNoOrEmail"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>订单号 / 邮箱</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="输入订单号或下单时的邮箱"
-                        className="h-11"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      使用邮箱可查询该邮箱下的所有订单
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="queryPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>查询密码</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="下单时设置的查询密码"
-                        className="h-11"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <Button
-                type="submit"
-                className="w-full h-11"
-                disabled={isPending}
-              >
-                {isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    查询中...
-                  </>
-                ) : (
-                  <>
-                    <Search className="mr-2 h-4 w-4" />
-                    查询订单
-                  </>
-                )}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-
-      {/* Order Results */}
-      {orders && orders.length > 0 && (
+      {/* Order List */}
+      {orders && orders.length > 0 ? (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-            查询结果 ({orders.length} 个订单)
-          </h2>
+          <p className="text-sm text-muted-foreground">
+            共 {orders.length} 个订单
+          </p>
 
           {orders.map((order, orderIndex) => {
             const status = statusConfig[order.status] || statusConfig.pending;
@@ -309,14 +259,14 @@ export default function OrderQueryPage() {
             );
           })}
         </div>
-      )}
-
-      {/* No Results */}
-      {orders && orders.length === 0 && (
+      ) : (
         <Card>
           <CardContent className="py-12 text-center">
             <Package className="mx-auto h-12 w-12 text-zinc-300" />
-            <p className="mt-4 text-zinc-500">未找到订单</p>
+            <p className="mt-4 text-zinc-500">暂无订单</p>
+            <Button asChild className="mt-4">
+              <Link href="/">去购物</Link>
+            </Button>
           </CardContent>
         </Card>
       )}

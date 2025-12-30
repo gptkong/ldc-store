@@ -125,9 +125,13 @@ export const orders = pgTable("orders", {
   status: orderStatusEnum("status").default("pending").notNull(),
   tradeNo: text("trade_no"), // 支付平台订单号
   
-  // 联系信息
-  email: text("email").notNull(),
-  queryPassword: text("query_password").notNull(), // 查询密码（哈希）
+  // 用户信息（OSS登录用户）
+  userId: text("user_id"), // Linux DO 用户ID
+  username: text("username"), // Linux DO 用户名
+  
+  // 联系信息（游客下单时使用）
+  email: text("email"), // 游客下单时必填
+  queryPassword: text("query_password"), // 游客下单时必填（哈希）
   
   // 时间戳
   paidAt: timestamp("paid_at", { withTimezone: true }),
@@ -145,6 +149,7 @@ export const orders = pgTable("orders", {
   index("orders_product_id_idx").on(table.productId),
   index("orders_created_at_idx").on(table.createdAt),
   index("orders_trade_no_idx").on(table.tradeNo),
+  index("orders_user_id_idx").on(table.userId),
 ]);
 
 // ============================================

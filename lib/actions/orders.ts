@@ -1,13 +1,13 @@
 "use server";
 
 import { db, orders, cards, products } from "@/lib/db";
-import { eq, and, sql, or, desc, inArray } from "drizzle-orm";
+import { eq, and, sql, desc, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import bcrypt from "bcryptjs";
 import { headers } from "next/headers";
 import { createOrderSchema, type CreateOrderInput } from "@/lib/validations/order";
 import { createPayment, type PaymentFormData } from "@/lib/payment/ldc";
 import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth";
 
 /**
  * 从请求头自动获取网站 URL
@@ -38,13 +38,27 @@ export interface CreateOrderResult {
 
 /**
  * 创建订单
- * 1. 验证输入
- * 2. 检查库存
- * 3. 创建订单并锁定卡密（使用事务）
- * 4. 调用支付接口获取支付链接
+ * 1. 验证登录状态
+ * 2. 验证输入
+ * 3. 检查库存
+ * 4. 创建订单并锁定卡密（使用事务）
+ * 5. 调用支付接口获取支付链接
+ * 
+ * 仅登录用户可下单
  */
 export async function createOrder(input: CreateOrderInput): Promise<CreateOrderResult> {
-  // 1. 验证输入
+  // 1. 验证登录状态
+  const session = await auth();
+  const user = session?.user as { id?: string; username?: string; provider?: string } | undefined;
+
+  if (!user?.id || user.provider !== "linux-do") {
+    return {
+      success: false,
+      message: "请先登录后再下单",
+    };
+  }
+
+  // 2. 验证输入
   const validationResult = createOrderSchema.safeParse(input);
   if (!validationResult.success) {
     return {
@@ -53,7 +67,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     };
   }
 
-  const { productId, quantity, email, queryPassword, paymentMethod } = validationResult.data;
+  const { productId, quantity, paymentMethod } = validationResult.data;
 
   try {
     // 2. 获取商品信息
@@ -90,7 +104,6 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       const cardIds = availableCards.map((c) => c.id);
       const orderNo = generateOrderNo();
       const totalAmount = parseFloat(product.price) * quantity;
-      const hashedPassword = await bcrypt.hash(queryPassword, 10);
       const expiredAt = new Date(Date.now() + ORDER_EXPIRE_MINUTES * 60 * 1000);
 
       // 3.2 创建订单
@@ -104,8 +117,8 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
           quantity,
           totalAmount: totalAmount.toFixed(2),
           paymentMethod,
-          email,
-          queryPassword: hashedPassword,
+          userId: user.id,
+          username: user.username,
           expiredAt,
         })
         .returning();
@@ -162,105 +175,6 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
     return {
       success: false,
       message: error instanceof Error ? error.message : "创建订单失败，请稍后重试",
-    };
-  }
-}
-
-/**
- * 查询订单
- * 支持通过订单号或邮箱 + 查询密码查询
- */
-export async function queryOrder(orderNoOrEmail: string, queryPassword: string) {
-  try {
-    // 根据输入判断是订单号还是邮箱
-    const isEmail = orderNoOrEmail.includes("@");
-
-    const orderList = await db.query.orders.findMany({
-      where: isEmail
-        ? eq(orders.email, orderNoOrEmail)
-        : eq(orders.orderNo, orderNoOrEmail),
-      with: {
-        cards: {
-          columns: {
-            id: true,
-            content: true,
-            status: true,
-          },
-        },
-      },
-      orderBy: [desc(orders.createdAt)],
-    });
-
-    if (orderList.length === 0) {
-      return { success: false, message: "订单不存在" };
-    }
-
-    // 验证密码（检查所有匹配订单）
-    for (const order of orderList) {
-      const isValid = await bcrypt.compare(queryPassword, order.queryPassword);
-      if (isValid) {
-        // 如果是查询单个订单号，返回该订单
-        if (!isEmail) {
-          // 仅当订单已完成时才显示卡密
-          const cardsToShow =
-            order.status === "completed" || order.status === "paid"
-              ? order.cards.filter((c) => c.status === "sold")
-              : [];
-
-          return {
-            success: true,
-            data: {
-              orderNo: order.orderNo,
-              productName: order.productName,
-              quantity: order.quantity,
-              totalAmount: order.totalAmount,
-              status: order.status,
-              paymentMethod: order.paymentMethod,
-              createdAt: order.createdAt,
-              paidAt: order.paidAt,
-              cards: cardsToShow.map((c) => c.content),
-            },
-          };
-        }
-
-        // 如果是邮箱查询，返回该邮箱下所有订单
-        const ordersWithCards = await Promise.all(
-          orderList.map(async (o) => {
-            const passValid = await bcrypt.compare(queryPassword, o.queryPassword);
-            if (!passValid) return null;
-
-            const cardsToShow =
-              o.status === "completed" || o.status === "paid"
-                ? o.cards.filter((c) => c.status === "sold")
-                : [];
-
-            return {
-              orderNo: o.orderNo,
-              productName: o.productName,
-              quantity: o.quantity,
-              totalAmount: o.totalAmount,
-              status: o.status,
-              paymentMethod: o.paymentMethod,
-              createdAt: o.createdAt,
-              paidAt: o.paidAt,
-              cards: cardsToShow.map((c) => c.content),
-            };
-          })
-        );
-
-        return {
-          success: true,
-          data: ordersWithCards.filter(Boolean),
-        };
-      }
-    }
-
-    return { success: false, message: "查询密码错误" };
-  } catch (error) {
-    console.error("查询订单失败:", error);
-    return {
-      success: false,
-      message: "查询失败，请稍后重试",
     };
   }
 }
@@ -430,6 +344,127 @@ export async function adminCompleteOrder(
     return {
       success: false,
       message: error instanceof Error ? error.message : "操作失败",
+    };
+  }
+}
+
+/**
+ * 获取当前登录用户的历史订单
+ */
+export async function getUserOrders() {
+  try {
+    const session = await auth();
+    const user = session?.user as { id?: string; provider?: string } | undefined;
+
+    if (!user?.id || user.provider !== "linux-do") {
+      return { success: false, message: "请先登录", data: [] };
+    }
+
+    const userOrders = await db.query.orders.findMany({
+      where: eq(orders.userId, user.id),
+      with: {
+        cards: {
+          columns: {
+            id: true,
+            content: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: [desc(orders.createdAt)],
+    });
+
+    const ordersWithCards = userOrders.map((order) => {
+      // 仅当订单已完成时才显示卡密
+      const cardsToShow =
+        order.status === "completed" || order.status === "paid"
+          ? order.cards.filter((c) => c.status === "sold")
+          : [];
+
+      return {
+        orderNo: order.orderNo,
+        productName: order.productName,
+        quantity: order.quantity,
+        totalAmount: order.totalAmount,
+        status: order.status,
+        paymentMethod: order.paymentMethod,
+        createdAt: order.createdAt,
+        paidAt: order.paidAt,
+        cards: cardsToShow.map((c) => c.content),
+      };
+    });
+
+    return {
+      success: true,
+      data: ordersWithCards,
+    };
+  } catch (error) {
+    console.error("获取用户订单失败:", error);
+    return {
+      success: false,
+      message: "获取订单失败，请稍后重试",
+      data: [],
+    };
+  }
+}
+
+/**
+ * 根据订单号获取订单详情（需验证用户身份）
+ */
+export async function getOrderByNo(orderNo: string) {
+  try {
+    const session = await auth();
+    const user = session?.user as { id?: string; provider?: string } | undefined;
+
+    if (!user?.id || user.provider !== "linux-do") {
+      return { success: false, message: "请先登录" };
+    }
+
+    const order = await db.query.orders.findFirst({
+      where: and(
+        eq(orders.orderNo, orderNo),
+        eq(orders.userId, user.id)
+      ),
+      with: {
+        cards: {
+          columns: {
+            id: true,
+            content: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      return { success: false, message: "订单不存在或无权访问" };
+    }
+
+    // 仅当订单已完成时才显示卡密
+    const cardsToShow =
+      order.status === "completed" || order.status === "paid"
+        ? order.cards.filter((c) => c.status === "sold")
+        : [];
+
+    return {
+      success: true,
+      data: {
+        orderNo: order.orderNo,
+        productName: order.productName,
+        quantity: order.quantity,
+        totalAmount: order.totalAmount,
+        status: order.status,
+        paymentMethod: order.paymentMethod,
+        createdAt: order.createdAt,
+        paidAt: order.paidAt,
+        cards: cardsToShow.map((c) => c.content),
+      },
+    };
+  } catch (error) {
+    console.error("获取订单详情失败:", error);
+    return {
+      success: false,
+      message: "获取订单失败，请稍后重试",
     };
   }
 }

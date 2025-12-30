@@ -5,24 +5,17 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useSession, signIn } from "next-auth/react";
 import { createOrder } from "@/lib/actions/orders";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Minus, Plus } from "lucide-react";
+import { Loader2, Minus, Plus, CheckCircle2 } from "lucide-react";
+import { LinuxDoLogo } from "@/components/icons/linuxdo-logo";
 
 const orderFormSchema = z.object({
   quantity: z.number().int().min(1),
-  email: z.string().email("请输入有效的邮箱地址"),
-  queryPassword: z
-    .string()
-    .min(6, "查询密码至少6位")
-    .max(32, "查询密码最多32位"),
-  confirmPassword: z.string(),
-}).refine((data) => data.queryPassword === data.confirmPassword, {
-  message: "两次输入的密码不一致",
-  path: ["confirmPassword"],
 });
 
 type OrderFormValues = z.infer<typeof orderFormSchema>;
@@ -46,21 +39,22 @@ export function OrderForm({
 }: OrderFormProps) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const { data: session, status } = useSession();
   const effectiveMax = Math.min(maxQuantity, stock);
+
+  // 检查是否是 Linux DO 登录用户
+  const user = session?.user as { username?: string; provider?: string } | undefined;
+  const isLoggedIn = user?.provider === "linux-do";
 
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderFormSchema),
     defaultValues: {
       quantity: minQuantity,
-      email: "",
-      queryPassword: "",
-      confirmPassword: "",
     },
   });
 
   const quantity = form.watch("quantity");
   const totalPrice = (price * quantity).toFixed(2);
-  const errors = form.formState.errors;
 
   const updateQuantity = (delta: number) => {
     const newValue = quantity + delta;
@@ -69,13 +63,20 @@ export function OrderForm({
     }
   };
 
+  const handleLogin = () => {
+    signIn("linux-do");
+  };
+
   const onSubmit = (values: OrderFormValues) => {
+    if (!isLoggedIn) {
+      toast.error("请先登录");
+      return;
+    }
+
     startTransition(async () => {
       const result = await createOrder({
         productId,
         quantity: values.quantity,
-        email: values.email,
-        queryPassword: values.queryPassword,
         paymentMethod: "ldc",
       });
 
@@ -114,8 +115,42 @@ export function OrderForm({
     });
   };
 
+  // 加载中
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // 未登录提示
+  if (!isLoggedIn) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center dark:border-amber-900 dark:bg-amber-950">
+          <p className="text-sm text-amber-700 dark:text-amber-300">
+            请登录后购买商品
+          </p>
+        </div>
+        <Button onClick={handleLogin} className="w-full">
+          <LinuxDoLogo className="mr-2 h-4 w-4" />
+          Linux DO Connect
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      {/* 登录用户提示 */}
+      <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+        <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+        <span>
+          已登录为 <strong>{user?.username}</strong>，支付完成后可在「我的订单」查看卡密
+        </span>
+      </div>
+
       {/* Quantity */}
       <div className="space-y-2">
         <Label>数量</Label>
@@ -156,49 +191,6 @@ export function OrderForm({
           <span className="text-sm text-muted-foreground">
             限购 {minQuantity}-{effectiveMax} 件
           </span>
-        </div>
-      </div>
-
-      {/* Email */}
-      <div className="space-y-2">
-        <Label htmlFor="email">联系邮箱</Label>
-        <Input
-          id="email"
-          type="email"
-          placeholder="your@email.com"
-          {...form.register("email")}
-        />
-        {errors.email && (
-          <p className="text-sm text-destructive">{errors.email.message}</p>
-        )}
-        <p className="text-xs text-muted-foreground">用于接收卡密信息</p>
-      </div>
-
-      {/* Password */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="queryPassword">查询密码</Label>
-          <Input
-            id="queryPassword"
-            type="password"
-            placeholder="6-32位密码"
-            {...form.register("queryPassword")}
-          />
-          {errors.queryPassword && (
-            <p className="text-sm text-destructive">{errors.queryPassword.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword">确认密码</Label>
-          <Input
-            id="confirmPassword"
-            type="password"
-            placeholder="再次输入"
-            {...form.register("confirmPassword")}
-          />
-          {errors.confirmPassword && (
-            <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
-          )}
         </div>
       </div>
 

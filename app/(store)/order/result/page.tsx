@@ -2,12 +2,11 @@
 
 import { useEffect, useState, useTransition, use } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { queryOrder } from "@/lib/actions/orders";
+import { getOrderByNo } from "@/lib/actions/orders";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -17,6 +16,7 @@ import {
   Copy,
   Package,
   XCircle,
+  ShoppingBag,
 } from "lucide-react";
 
 interface OrderResultPageProps {
@@ -36,14 +36,18 @@ interface OrderData {
 
 export default function OrderResultPage({ searchParams }: OrderResultPageProps) {
   const params = use(searchParams);
+  const { data: session, status: sessionStatus } = useSession();
   const [orderNo, setOrderNo] = useState(params.out_trade_no || "");
 
   const [isPending, startTransition] = useTransition();
   const [order, setOrder] = useState<OrderData | null>(null);
-  const [password, setPassword] = useState("");
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(!params.out_trade_no);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 检查是否是 Linux DO 登录用户
+  const user = session?.user as { provider?: string } | undefined;
+  const isLoggedIn = user?.provider === "linux-do";
 
   // 如果 URL 没有订单号参数，尝试从 localStorage 读取
   useEffect(() => {
@@ -51,28 +55,37 @@ export default function OrderResultPage({ searchParams }: OrderResultPageProps) 
       const savedOrderNo = localStorage.getItem("ldc_last_order_no");
       if (savedOrderNo) {
         setOrderNo(savedOrderNo);
-        // 读取后清除，避免下次误用
         localStorage.removeItem("ldc_last_order_no");
       }
-      setIsLoading(false);
     }
   }, [params.out_trade_no]);
 
-  const handleQuery = () => {
-    if (!password) {
-      setError("请输入查询密码");
+  // 加载订单数据
+  useEffect(() => {
+    if (sessionStatus === "loading") return;
+    if (!orderNo) {
+      setIsLoading(false);
       return;
     }
-    setError("");
 
+    if (!isLoggedIn) {
+      setError("请先登录查看订单");
+      setIsLoading(false);
+      return;
+    }
+
+    loadOrder();
+  }, [sessionStatus, orderNo, isLoggedIn]);
+
+  const loadOrder = () => {
     startTransition(async () => {
-      const result = await queryOrder(orderNo, password);
+      const result = await getOrderByNo(orderNo);
       if (result.success && result.data) {
-        const data = Array.isArray(result.data) ? result.data[0] : result.data;
-        setOrder(data as OrderData);
+        setOrder(result.data as OrderData);
       } else {
-        toast.error(result.message || "查询失败");
+        setError(result.message || "获取订单失败");
       }
+      setIsLoading(false);
     });
   };
 
@@ -87,18 +100,34 @@ export default function OrderResultPage({ searchParams }: OrderResultPageProps) 
     }
   };
 
-  // 等待 localStorage 检查完成
-  if (isLoading) {
+  // 加载中
+  if (isLoading || sessionStatus === "loading") {
     return (
       <div className="mx-auto max-w-md px-4 py-12 text-center">
         <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="mt-4 text-muted-foreground">加载中...</p>
       </div>
     );
   }
 
+  // 未登录
+  if (!isLoggedIn) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-12 text-center">
+        <XCircle className="mx-auto h-12 w-12 text-muted-foreground" />
+        <p className="mt-4 text-muted-foreground">请先登录查看订单</p>
+        <Link href="/">
+          <Button className="mt-4">返回首页</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  // 订单号无效
   if (!orderNo) {
     return (
       <div className="mx-auto max-w-md px-4 py-12 text-center">
+        <XCircle className="mx-auto h-12 w-12 text-muted-foreground" />
         <p className="text-muted-foreground">订单号无效</p>
         <Link href="/">
           <Button className="mt-4">返回首页</Button>
@@ -107,63 +136,33 @@ export default function OrderResultPage({ searchParams }: OrderResultPageProps) 
     );
   }
 
-  // 未查询状态 - 显示密码输入
+  // 订单不存在或无权限
+  if (error) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-12 text-center">
+        <XCircle className="mx-auto h-12 w-12 text-muted-foreground" />
+        <p className="mt-4 text-muted-foreground">{error}</p>
+        <div className="mt-4 flex gap-3 justify-center">
+          <Link href="/order/my">
+            <Button variant="outline">
+              <ShoppingBag className="mr-2 h-4 w-4" />
+              我的订单
+            </Button>
+          </Link>
+          <Link href="/">
+            <Button>返回首页</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // 加载订单中
   if (!order) {
     return (
-      <div className="mx-auto max-w-md px-4 py-12">
-        <Card>
-          <CardContent className="pt-6 space-y-6">
-            <div className="text-center">
-              <CheckCircle2 className="mx-auto h-12 w-12 text-green-500" />
-              <h1 className="mt-4 text-xl font-semibold">支付完成</h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                输入查询密码查看订单详情和卡密
-              </p>
-            </div>
-
-            <div className="rounded-lg bg-muted/50 p-3 text-center">
-              <p className="text-xs text-muted-foreground">订单号</p>
-              <p className="font-mono font-medium">{orderNo}</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">查询密码</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="下单时设置的密码"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleQuery()}
-              />
-              {error && <p className="text-sm text-destructive">{error}</p>}
-            </div>
-
-            <Button
-              className="w-full"
-              onClick={handleQuery}
-              disabled={isPending}
-            >
-              {isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  查询中
-                </>
-              ) : (
-                "查看订单"
-              )}
-            </Button>
-
-            <div className="text-center">
-              <Link
-                href="/"
-                className="text-sm text-muted-foreground hover:text-foreground"
-              >
-                返回首页
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="mx-auto max-w-md px-4 py-12 text-center">
+        <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="mt-4 text-muted-foreground">加载订单中...</p>
       </div>
     );
   }
@@ -261,9 +260,10 @@ export default function OrderResultPage({ searchParams }: OrderResultPageProps) 
 
           {/* Actions */}
           <div className="flex gap-3">
-            <Link href="/order/query" className="flex-1">
+            <Link href="/order/my" className="flex-1">
               <Button variant="outline" className="w-full">
-                查询其他订单
+                <ShoppingBag className="mr-2 h-4 w-4" />
+                我的订单
               </Button>
             </Link>
             <Link href="/" className="flex-1">
