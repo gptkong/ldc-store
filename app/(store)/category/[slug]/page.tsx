@@ -38,7 +38,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   });
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="mx-auto max-w-6xl px-4 py-8">
       {/* Breadcrumb */}
       <nav className="mb-6 flex items-center gap-2 text-sm text-zinc-500">
         <Link href="/" className="hover:text-violet-600">
@@ -69,7 +69,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
       {/* Products Grid */}
       {products.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {products.map((product) => (
             <ProductCard
               key={product.id}

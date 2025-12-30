@@ -5,27 +5,25 @@ import { getActiveCategories } from "@/lib/actions/categories";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Package } from "lucide-react";
 
-interface HomePageProps {
-  searchParams: Promise<{ search?: string }>;
-}
-
-async function ProductList({ search }: { search?: string }) {
+async function ProductList() {
   const products = await getActiveProducts({
-    search,
     limit: 20,
   });
 
   if (products.length === 0) {
     return (
-      <div className="py-12 text-center text-muted-foreground">
-        {search ? `未找到 "${search}" 相关商品` : "暂无商品"}
+      <div className="col-span-full flex flex-col items-center justify-center py-16 text-muted-foreground">
+        <Package className="h-12 w-12 mb-4 opacity-50" />
+        <p className="text-lg font-medium">暂无商品</p>
+        <p className="text-sm mt-1">请稍后再来看看吧</p>
       </div>
     );
   }
 
   return (
-    <div className="divide-y">
+    <>
       {products.map((product) => (
         <ProductCard
           key={product.id}
@@ -42,7 +40,7 @@ async function ProductList({ search }: { search?: string }) {
           category={product.category}
         />
       ))}
-    </div>
+    </>
   );
 }
 
@@ -50,19 +48,27 @@ async function CategoryTabs({ currentCategory }: { currentCategory?: string }) {
   const categories = await getActiveCategories();
 
   return (
-    <div className="flex gap-1 overflow-x-auto pb-1">
+    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
       <Link href="/">
         <Button
-          variant={!currentCategory ? "secondary" : "ghost"}
+          variant={!currentCategory ? "default" : "outline"}
           size="sm"
-          className="shrink-0"
+          className={`shrink-0 rounded-full transition-all ${
+            !currentCategory 
+              ? "shadow-md shadow-primary/20" 
+              : "hover:bg-muted"
+          }`}
         >
-          全部
+          全部商品
         </Button>
       </Link>
       {categories.map((category) => (
         <Link key={category.id} href={`/category/${category.slug}`}>
-          <Button variant="ghost" size="sm" className="shrink-0">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="shrink-0 rounded-full hover:bg-muted transition-all"
+          >
             {category.name}
           </Button>
         </Link>
@@ -71,49 +77,43 @@ async function CategoryTabs({ currentCategory }: { currentCategory?: string }) {
   );
 }
 
-export default async function HomePage({ searchParams }: HomePageProps) {
-  const { search } = await searchParams;
-
+function ProductGridSkeleton() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
-
-      {/* Search Header */}
-      {search && (
-        <div className="mb-4 flex items-center gap-3">
-          <span className="text-muted-foreground">搜索:</span>
-          <span className="font-medium">{search}</span>
-          <Link href="/">
-            <Button variant="ghost" size="sm">
-              清除
-            </Button>
-          </Link>
-        </div>
-      )}
-
-      {/* Categories */}
-      {!search && (
-        <div className="mb-4">
-          <Suspense fallback={<Skeleton className="h-9 w-full" />}>
-            <CategoryTabs />
-          </Suspense>
-        </div>
-      )}
-
-      {/* Products */}
-      <div className="rounded-lg border">
-        <Suspense
-          fallback={
-            <div className="divide-y">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="p-4">
-                  <Skeleton className="h-5 w-48" />
-                  <Skeleton className="mt-2 h-4 w-24" />
-                </div>
-              ))}
-            </div>
-          }
+    <>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div
+          key={i}
+          className="flex flex-col overflow-hidden rounded-xl border bg-card"
         >
-          <ProductList search={search} />
+          <Skeleton className="aspect-[4/3] w-full" />
+          <div className="p-4 space-y-3">
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-4 w-full" />
+            <div className="flex justify-between pt-2">
+              <Skeleton className="h-6 w-20" />
+              <Skeleton className="h-4 w-12" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+export default async function HomePage() {
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-8">
+      {/* Categories */}
+      <div className="mb-8">
+        <Suspense fallback={<Skeleton className="h-9 w-64" />}>
+          <CategoryTabs />
+        </Suspense>
+      </div>
+
+      {/* Products Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <Suspense fallback={<ProductGridSkeleton />}>
+          <ProductList />
         </Suspense>
       </div>
     </div>

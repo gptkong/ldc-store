@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Search, User, LogOut, Package } from "lucide-react";
+import { User, LogOut, Package } from "lucide-react";
 import { LinuxDoLogo } from "@/components/icons/linuxdo-logo";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,8 +12,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useSession, signIn, signOut } from "next-auth/react";
 
 interface HeaderProps {
@@ -22,8 +19,6 @@ interface HeaderProps {
 }
 
 export function Header({ siteName = "LDC Store" }: HeaderProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const router = useRouter();
   const { data: session, status } = useSession();
 
   // 检查是否是 Linux DO 登录用户
@@ -37,13 +32,6 @@ export function Header({ siteName = "LDC Store" }: HeaderProps) {
   const isLoggedIn = user?.provider === "linux-do";
   const isAdmin = user?.role === "admin";
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/?search=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
-
   const handleLogin = () => {
     signIn("linux-do");
   };
@@ -54,25 +42,12 @@ export function Header({ siteName = "LDC Store" }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         <Link href="/" className="font-semibold">
           {siteName}
         </Link>
 
         <div className="flex items-center gap-3">
-          <form onSubmit={handleSearch} className="hidden sm:block">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="搜索..."
-                className="h-9 w-40 pl-8 sm:w-48"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </form>
-
           {/* 用户状态 */}
           {status === "loading" ? (
             <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
