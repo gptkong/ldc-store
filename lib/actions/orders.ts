@@ -1,5 +1,15 @@
 "use server";
 
+/**
+ * 订单相关 Server Actions
+ *
+ * 时区策略说明：
+ * - 所有时间使用 JavaScript Date 对象（内部为 UTC 时间戳）
+ * - 数据库字段为 timestamp with time zone，PostgreSQL 自动以 UTC 存储
+ * - 过期判断使用数据库 NOW() 函数，确保与存储时间一致
+ * - 前端显示时浏览器自动转换为用户本地时区
+ */
+
 import { db, orders, cards, products } from "@/lib/db";
 import { eq, and, sql, desc, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
@@ -9,6 +19,7 @@ import { createPayment, type PaymentFormData } from "@/lib/payment/ldc";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { requireAdmin } from "@/lib/auth-utils";
+import { getExpireTime } from "@/lib/time";
 
 /**
  * 从请求头自动获取网站 URL
@@ -108,7 +119,8 @@ export async function createOrder(input: CreateOrderInput): Promise<CreateOrderR
       const cardIds = availableCards.map((c) => c.id);
       const orderNo = generateOrderNo();
       const totalAmount = parseFloat(product.price) * quantity;
-      const expiredAt = new Date(Date.now() + ORDER_EXPIRE_MINUTES * 60 * 1000);
+      // 计算订单过期时间（UTC 时间戳，存入数据库时自动转换）
+      const expiredAt = getExpireTime(ORDER_EXPIRE_MINUTES);
 
       // 3.2 创建订单
       const [newOrder] = await tx
@@ -262,11 +274,18 @@ export async function handlePaymentSuccess(
 /**
  * 释放过期订单的锁定卡密
  * 采用懒加载策略：在关键操作时自动调用
+ *
+ * 时区一致性说明：
+ * - 订单创建时 expiredAt 使用 JavaScript Date（UTC 时间戳）
+ * - PostgreSQL 存储为 timestamp with time zone（内部 UTC）
+ * - 过期检查使用数据库 NOW() 函数（与存储时区一致）
+ * - 这确保了无论服务器部署在哪个时区，过期判断都是准确的
  */
 export async function releaseExpiredOrders(): Promise<number> {
   try {
     const result = await db.transaction(async (tx) => {
       // 1. 找出所有过期的待支付订单
+      // 使用数据库 NOW() 确保与 expiredAt 时区一致
       const expiredOrders = await tx
         .update(orders)
         .set({

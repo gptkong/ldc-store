@@ -19,6 +19,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
+import { formatShortTime } from "@/lib/time";
 
 interface OrderData {
   orderNo: string;
@@ -129,15 +130,6 @@ export default function MyOrdersPage() {
     }
   };
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleString("zh-CN", {
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   if (sessionStatus === "loading" || isLoading) {
     return (
       <div className="container mx-auto max-w-2xl px-4 py-12">
@@ -187,7 +179,7 @@ export default function MyOrdersPage() {
                       <span className="font-medium truncate">{order.productName}</span>
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <span>{formatDate(order.createdAt)}</span>
+                      <span>{formatShortTime(order.createdAt)}</span>
                       <span>×{order.quantity}</span>
                       <span className="font-medium text-foreground">{order.totalAmount} LDC</span>
                     </div>

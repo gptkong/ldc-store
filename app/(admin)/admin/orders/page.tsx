@@ -14,8 +14,15 @@ import {
 } from "@/components/ui/table";
 import { ShoppingCart, Eye, CheckCircle2, Clock } from "lucide-react";
 import { OrderActions } from "./order-actions";
-import { format } from "date-fns";
-import { zhCN } from "date-fns/locale";
+import { LocalTime } from "@/components/time/local-time";
+
+function toIsoString(value: unknown): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string") return value;
+  const date = new Date(value as string);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
 
 async function getOrders() {
   return db.query.orders.findMany({
@@ -166,9 +173,7 @@ export default async function OrdersPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm text-zinc-500">
-                          {format(new Date(order.createdAt), "MM-dd HH:mm", {
-                            locale: zhCN,
-                          })}
+                          <LocalTime value={toIsoString(order.createdAt)} mode="short" />
                         </TableCell>
                         <TableCell className="text-right">
                           <OrderActions

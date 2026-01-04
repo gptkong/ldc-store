@@ -85,6 +85,7 @@
 | `NEXT_PUBLIC_SITE_NAME` | 网站名称 | `LDC Store` |
 | `NEXT_PUBLIC_SITE_DESCRIPTION` | 网站描述 | - |
 | `ORDER_EXPIRE_MINUTES` | 订单过期时间(分钟) | `10` |
+| `STATS_TIMEZONE` | 统计口径时区（后台“今日销售额”等统计的日界线口径） | `Asia/Shanghai` |
 
 ### 步骤 4：部署
 

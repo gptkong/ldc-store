@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { db, orders, cards, products } from "@/lib/db";
-import { eq, sql, and, gte } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,19 +15,23 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { getStatsTimeZone, getTodayRangeSql } from "@/lib/time/stats";
 
 async function getDashboardStats() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // 今日销售统计（统计口径由 STATS_TIMEZONE 控制，默认 Asia/Shanghai）
+  const statsTimeZone = getStatsTimeZone();
+  const { start: todayStart, end: tomorrowStart } = getTodayRangeSql(statsTimeZone);
 
-  // 今日销售统计
   const todaySales = await db
     .select({
       count: sql<number>`count(*)::int`,
       total: sql<string>`COALESCE(sum(total_amount::numeric), 0)::text`,
     })
     .from(orders)
-    .where(and(eq(orders.status, "completed"), gte(orders.paidAt, today)));
+    .where(and(
+      eq(orders.status, "completed"),
+      sql`${orders.paidAt} >= ${todayStart} AND ${orders.paidAt} < ${tomorrowStart}`
+    ));
 
   // 待处理订单
   const pendingOrders = await db

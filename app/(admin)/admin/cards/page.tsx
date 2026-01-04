@@ -17,6 +17,15 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ImportCardsDialog } from "./import-cards-dialog";
 import { EditCardDialog } from "./edit-card-dialog";
+import { LocalTime } from "@/components/time/local-time";
+
+function toIsoString(value: unknown): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string") return value;
+  const date = new Date(value as string);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
 
 interface CardsPageProps {
   searchParams: Promise<{ product?: string }>;
@@ -193,7 +202,7 @@ export default async function CardsPage({ searchParams }: CardsPageProps) {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-sm text-zinc-500">
-                              {new Date(card.createdAt).toLocaleString("zh-CN")}
+                              <LocalTime value={toIsoString(card.createdAt)} />
                             </TableCell>
                             <TableCell className="text-center">
                               <EditCardDialog

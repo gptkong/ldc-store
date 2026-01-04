@@ -18,6 +18,7 @@ import {
   XCircle,
   ShoppingBag,
 } from "lucide-react";
+import { formatLocalTime } from "@/lib/time";
 
 interface OrderResultPageProps {
   searchParams: Promise<{ out_trade_no?: string }>;
@@ -258,7 +259,7 @@ export default function OrderResultPage({ searchParams }: OrderResultPageProps) 
             </div>
             <div>
               <span className="text-muted-foreground">下单时间</span>
-              <p>{new Date(order.createdAt).toLocaleString("zh-CN")}</p>
+              <p>{formatLocalTime(order.createdAt)}</p>
             </div>
           </div>
 

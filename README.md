@@ -2,7 +2,7 @@
 
 基于 Next.js 16 的虚拟商品自动发卡平台，支持 Linux DO Credit 积分支付。
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fgptkong%2Fldc-store&env=DATABASE_URL,AUTH_SECRET,ADMIN_PASSWORD,LDC_CLIENT_ID,LDC_CLIENT_SECRET,LINUXDO_CLIENT_ID,LINUXDO_CLIENT_SECRET&envDescription=DATABASE_URL%3A%20PostgreSQL%20%7C%20AUTH_SECRET%3A%20openssl%20rand%20-base64%2032%20%7C%20ADMIN_PASSWORD%3A%20管理员密码%20%7C%20LDC_CLIENT_ID%2FLDC_CLIENT_SECRET%3A%20支付凭证%20%7C%20LINUXDO_CLIENT_ID%2FLINUXDO_CLIENT_SECRET%3A%20OAuth登录凭证&envLink=https%3A%2F%2Fgithub.com%2Fgptkong%2Fldc-store%2Fblob%2Fmain%2Fdocs%2FDEPLOY.md&project-name=ldc-store&repository-name=ldc-store)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fgptkong%2Fldc-store&env=DATABASE_URL,AUTH_SECRET,ADMIN_PASSWORD,LDC_CLIENT_ID,LDC_CLIENT_SECRET,LINUXDO_CLIENT_ID,LINUXDO_CLIENT_SECRET,STATS_TIMEZONE&envDescription=DATABASE_URL%3A%20PostgreSQL%20%7C%20AUTH_SECRET%3A%20openssl%20rand%20-base64%2032%20%7C%20ADMIN_PASSWORD%3A%20管理员密码%20%7C%20LDC_CLIENT_ID%2FLDC_CLIENT_SECRET%3A%20支付凭证%20%7C%20LINUXDO_CLIENT_ID%2FLINUXDO_CLIENT_SECRET%3A%20OAuth登录凭证%20%7C%20STATS_TIMEZONE%3A%20统计口径时区（默认%20Asia%2FShanghai）&envLink=https%3A%2F%2Fgithub.com%2Fgptkong%2Fldc-store%2Fblob%2Fmain%2Fdocs%2FDEPLOY.md&project-name=ldc-store&repository-name=ldc-store)
 
 > 📚 **详细部署指南**: [docs/DEPLOY.md](./docs/DEPLOY.md)
 
@@ -107,6 +107,10 @@ NEXT_PUBLIC_SITE_DESCRIPTION="基于 Linux DO Credit 的虚拟商品自动发卡
 
 # 订单过期时间（分钟）
 ORDER_EXPIRE_MINUTES=10
+
+# 统计口径时区（可选，默认 Asia/Shanghai / UTC+8）
+# 用于后台仪表盘“今日销售额”等统计的日界线口径
+STATS_TIMEZONE="Asia/Shanghai"
 ```
 
 ### 3. 初始化数据库
@@ -155,6 +159,13 @@ pnpm dev
 | `NEXT_PUBLIC_SITE_NAME` | ❌ | - | 网站名称（显示在 Header 和页面标题）|
 | `NEXT_PUBLIC_SITE_DESCRIPTION` | ❌ | - | 网站描述（用于 SEO）|
 | `ORDER_EXPIRE_MINUTES` | ❌ | `10` | 订单过期时间（分钟）|
+| `STATS_TIMEZONE` | ❌ | `Asia/Shanghai` | 统计口径时区（用于“今日销售额”等报表口径，建议使用 IANA 时区名）|
+
+### 🕒 时间与统计口径
+
+- 数据库存储使用 `timestamp with time zone`（timestamptz），内部以 UTC 存储时间戳
+- 前端展示时间按用户浏览器本地时区显示（例如订单列表时间）
+- 后台“今日”类统计的日界线由 `STATS_TIMEZONE` 决定，默认中国时区（`Asia/Shanghai`）
 
 ## 📝 Linux DO Credit 配置
 
