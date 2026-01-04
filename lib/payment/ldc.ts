@@ -196,12 +196,13 @@ export async function queryPaymentOrder(
 
 /**
  * 退款
+ * 使用 GET 请求调用退款接口
  */
 export async function refundOrder(
   tradeNo: string,
   money: string
 ): Promise<{ code: number; msg: string }> {
-  const gateway = process.env.LDC_GATEWAY || "https://credit.linux.do/epay";
+  let gateway = process.env.LDC_GATEWAY || "https://credit.linux.do/epay";
   const pid = process.env.LDC_CLIENT_ID;
   const secret = process.env.LDC_CLIENT_SECRET;
 
@@ -209,18 +210,48 @@ export async function refundOrder(
     throw new Error("支付配置未设置");
   }
 
-  const response = await fetch(`${gateway}/api.php`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      pid,
-      key: secret,
-      trade_no: tradeNo,
-      money,
-    }),
+  // 确保网关地址格式正确
+  gateway = gateway.replace(/\/+$/, ""); // 移除末尾斜杠
+  if (!gateway.includes("/epay")) {
+    gateway = gateway + "/epay";
+  }
+
+  const params = new URLSearchParams({
+    act: "refund",
+    pid,
+    key: secret,
+    trade_no: tradeNo,
+    money,
   });
 
-  return response.json();
+  const url = `${gateway}/api.php?${params}`;
+  
+  if (process.env.NODE_ENV === "development") {
+    console.log("LDC 退款请求:", url);
+  }
+
+  const response = await fetch(url);
+  
+  // 检查响应内容类型
+  const contentType = response.headers.get("content-type");
+  const text = await response.text();
+  
+  if (process.env.NODE_ENV === "development") {
+    console.log("LDC 退款响应:", text);
+  }
+  
+  // 如果不是 JSON 响应，抛出友好错误
+  if (!contentType?.includes("application/json")) {
+    console.error("退款接口返回非 JSON 响应:", text.substring(0, 200));
+    throw new Error("支付平台返回格式异常，请检查退款接口配置");
+  }
+  
+  try {
+    return JSON.parse(text);
+  } catch {
+    console.error("退款接口 JSON 解析失败:", text.substring(0, 200));
+    throw new Error("支付平台响应解析失败");
+  }
 }
 
 export type { PaymentParams, NotifyParams, OrderQueryResult };
