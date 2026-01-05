@@ -24,7 +24,8 @@
 
 ### 🔄 退款功能
 - 用户可申请退款，管理员审核
-- 支持通过代理调用 LDC Credit 退款接口
+- **客户端模式**：通过浏览器表单提交绕过 CORS/CF 限制（无需代理）
+- **代理模式**：通过服务端代理调用 LDC Credit 退款接口
 - 退款成功后自动回收卡密
 
 ### 📦 库存管理
@@ -155,7 +156,8 @@ pnpm dev
 | `LDC_CLIENT_ID` | ✅ | - | Linux DO Credit Client ID |
 | `LDC_CLIENT_SECRET` | ✅ | - | Linux DO Credit Client Secret |
 | `LDC_GATEWAY` | ❌ | `https://credit.linux.do/epay` | 支付网关地址 |
-| `LDC_PROXY_URL` | ❌ | - | LDC API 代理地址（用于退款功能，绕过 Cloudflare）|
+| `LDC_REFUND_MODE` | ❌ | `client` | 退款模式：`client`（客户端）/ `proxy`（代理）/ `disabled`（禁用）|
+| `LDC_PROXY_URL` | ❌ | - | LDC API 代理地址（代理模式时使用，绕过 Cloudflare）|
 | `ADMIN_USERNAMES` | ❌ | - | Linux DO 管理员用户名白名单（逗号分隔），命中则授予 `admin` 角色 |
 | `LINUXDO_CLIENT_ID` | ✅ | - | Linux DO OAuth2 Client ID（用户下单/查单必须）|
 | `LINUXDO_CLIENT_SECRET` | ✅ | - | Linux DO OAuth2 Client Secret（用户下单/查单必须）|
@@ -181,31 +183,42 @@ pnpm dev
    - **Notify URL:** `https://your-domain.com/api/payment/notify`
    - **Return URL:** `https://your-domain.com/order/result`
 
-## 🔄 退款功能配置（可选）
+## 🔄 退款功能配置
 
-由于 Linux DO Credit 的 API 接口受 Cloudflare 保护，从 Vercel 等服务器端直接调用会被拦截。如需启用退款功能，需要配置 API 代理。
+由于 Linux DO Credit 的 API 接口受 Cloudflare 保护，从 Vercel 等服务器端直接调用会被拦截。本项目支持两种退款模式：
 
-### 代理服务
+### 退款模式
 
-退款代理功能基于 [gptkong/gin-flaresolverr-proxy](https://github.com/gptkong/gin-flaresolverr-proxy) 项目实现，该服务通过 FlareSolverr 绕过 Cloudflare 保护。
+| 模式 | 环境变量 | 说明 |
+|------|---------|------|
+| **客户端模式** | `LDC_REFUND_MODE=client`（默认） | 通过浏览器表单提交绕过 CORS/CF 限制，无需代理 |
+| **代理模式** | `LDC_REFUND_MODE=proxy` + `LDC_PROXY_URL` | 通过服务端代理调用 LDC API |
+| **禁用** | `LDC_REFUND_MODE=disabled` | 禁用退款功能 |
 
-> ⚠️ **注意**：代理功能可能会随着 Linux DO Credit 官方接口变更而失效，请关注上游仓库更新。
+### 客户端模式（推荐）
 
-### 配置步骤
+默认启用，无需额外配置。工作原理：
+
+1. 管理员点击"通过退款"后打开新窗口
+2. 新窗口通过 HTML 表单 POST 提交到 LDC API（表单提交不受 CORS 限制）
+3. 窗口内显示 LDC API 的响应结果
+4. 管理员确认退款成功后，系统更新订单状态
+
+> 💡 **提示**：如遇 Cloudflare 验证，管理员需先在浏览器中访问 `credit.linux.do` 完成验证，然后重试退款操作。
+
+### 代理模式（可选）
+
+如果客户端模式无法满足需求，可以配置代理服务：
 
 1. 部署 [gin-flaresolverr-proxy](https://github.com/gptkong/gin-flaresolverr-proxy) 服务
-2. 在环境变量中配置代理地址：
+2. 在环境变量中配置：
 
 ```env
+LDC_REFUND_MODE=proxy
 LDC_PROXY_URL="https://your-proxy-domain.com/api"
 ```
 
-### 功能说明
-
-| 环境变量配置 | 退款功能 | 说明 |
-|-------------|---------|------|
-| `LDC_PROXY_URL` 未设置 | ❌ 隐藏 | 前后台均不显示退款相关按钮 |
-| `LDC_PROXY_URL` 已配置 | ✅ 启用 | 用户可申请退款，管理员可审批 |
+> ⚠️ **注意**：代理功能可能会随着 Linux DO Credit 官方接口变更而失效，请关注上游仓库更新。
 
 ## 🔑 Linux DO OAuth2 登录配置
 

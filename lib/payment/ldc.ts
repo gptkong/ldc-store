@@ -6,12 +6,43 @@
 import crypto from "crypto";
 
 /**
+ * 退款模式
+ * - 'proxy': 使用服务端代理（需配置 LDC_PROXY_URL）
+ * - 'client': 客户端直接调用（通过浏览器绕过 CF）
+ * - 'disabled': 禁用退款
+ */
+export type RefundMode = 'proxy' | 'client' | 'disabled';
+
+/**
+ * 获取退款模式
+ * 优先使用代理模式，如果没有代理则启用客户端模式
+ * 可通过 LDC_REFUND_MODE 环境变量强制指定模式：proxy / client / disabled
+ */
+export function getRefundMode(): RefundMode {
+  const envMode = process.env.LDC_REFUND_MODE?.toLowerCase();
+  
+  if (envMode === 'disabled') {
+    return 'disabled';
+  }
+  
+  if (envMode === 'client') {
+    return 'client';
+  }
+  
+  if (process.env.LDC_PROXY_URL) {
+    return 'proxy';
+  }
+  
+  // 默认启用客户端模式（无需代理）
+  return 'client';
+}
+
+/**
  * 检查是否启用退款功能
- * 仅当配置了 LDC_PROXY_URL 时才启用退款功能
- * 因为官方的 /api.php 接口受 Cloudflare 保护，无法从 Vercel 直接调用
+ * 兼容旧版本逻辑
  */
 export function isRefundEnabled(): boolean {
-  return !!process.env.LDC_PROXY_URL;
+  return getRefundMode() !== 'disabled';
 }
 
 /**
@@ -301,6 +332,47 @@ export async function refundOrder(
     console.error("退款接口 JSON 解析失败:", text.substring(0, 500));
     throw new Error("支付平台响应解析失败");
   }
+}
+
+/**
+ * 客户端退款所需的参数
+ */
+export interface ClientRefundParams {
+  apiUrl: string;
+  pid: string;
+  key: string;
+  trade_no: string;
+  money: string;
+}
+
+/**
+ * 生成客户端退款所需的参数
+ * 这些参数将传递给前端，由浏览器直接调用 LDC API（可通过 CF 挑战）
+ */
+export function getClientRefundParams(
+  tradeNo: string,
+  money: string
+): ClientRefundParams {
+  const pid = process.env.LDC_CLIENT_ID;
+  const secret = process.env.LDC_CLIENT_SECRET;
+
+  if (!pid || !secret) {
+    throw new Error("支付配置未设置：请在 .env 文件中配置 LDC_CLIENT_ID 和 LDC_CLIENT_SECRET");
+  }
+
+  let gateway = process.env.LDC_GATEWAY || "https://credit.linux.do/epay";
+  gateway = gateway.replace(/\/+$/, "");
+  if (!gateway.includes("/epay")) {
+    gateway = gateway + "/epay";
+  }
+
+  return {
+    apiUrl: `${gateway}/api.php`,
+    pid,
+    key: secret,
+    trade_no: tradeNo,
+    money,
+  };
 }
 
 export type { PaymentParams, NotifyParams, OrderQueryResult };

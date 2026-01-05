@@ -15,7 +15,7 @@ import { eq, and, sql, desc, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { headers } from "next/headers";
 import { createOrderSchema, type CreateOrderInput } from "@/lib/validations/order";
-import { createPayment, refundOrder, isRefundEnabled, type PaymentFormData } from "@/lib/payment/ldc";
+import { createPayment, refundOrder, isRefundEnabled, getRefundMode, getClientRefundParams, type PaymentFormData, type RefundMode, type ClientRefundParams } from "@/lib/payment/ldc";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { requireAdmin } from "@/lib/auth-utils";
@@ -771,5 +771,123 @@ export async function getRefundOrders() {
  */
 export async function getRefundEnabled(): Promise<boolean> {
   return isRefundEnabled();
+}
+
+/**
+ * 获取退款模式
+ */
+export async function getOrderRefundMode(): Promise<RefundMode> {
+  return getRefundMode();
+}
+
+/**
+ * 获取客户端退款所需的参数
+ * 用于客户端模式下，前端直接调用 LDC API
+ */
+export async function getClientRefundData(
+  orderId: string
+): Promise<{ 
+  success: boolean; 
+  message: string; 
+  data?: ClientRefundParams;
+}> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, message: "需要管理员权限" };
+  }
+
+  const mode = getRefundMode();
+  if (mode !== 'client') {
+    return { success: false, message: "当前不是客户端退款模式" };
+  }
+
+  try {
+    const order = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+    });
+
+    if (!order) {
+      return { success: false, message: "订单不存在" };
+    }
+
+    if (order.status !== "refund_pending") {
+      return { success: false, message: "该订单不在退款审核中" };
+    }
+
+    if (!order.tradeNo) {
+      return { success: false, message: "订单缺少支付流水号，无法退款" };
+    }
+
+    const params = getClientRefundParams(order.tradeNo, order.totalAmount);
+    return { success: true, message: "获取成功", data: params };
+  } catch (error) {
+    console.error("获取客户端退款参数失败:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "获取退款参数失败",
+    };
+  }
+}
+
+/**
+ * 客户端退款成功后标记订单已退款
+ * 用于客户端模式下，前端调用 LDC API 成功后更新数据库
+ */
+export async function markOrderRefunded(
+  orderId: string,
+  adminRemark?: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { success: false, message: "需要管理员权限" };
+  }
+
+  try {
+    const order = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+    });
+
+    if (!order) {
+      return { success: false, message: "订单不存在" };
+    }
+
+    if (order.status !== "refund_pending") {
+      return { success: false, message: "该订单不在退款审核中" };
+    }
+
+    // 更新订单状态
+    await db
+      .update(orders)
+      .set({
+        status: "refunded",
+        adminRemark: adminRemark || "退款已通过（客户端模式）",
+        refundedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId));
+
+    // 将卡密状态改回可用
+    await db
+      .update(cards)
+      .set({
+        status: "available",
+        orderId: null,
+        soldAt: null,
+      })
+      .where(eq(cards.orderId, orderId));
+
+    revalidatePath("/admin/orders");
+    revalidatePath("/order/my");
+
+    return { success: true, message: "订单状态已更新为已退款" };
+  } catch (error) {
+    console.error("标记订单已退款失败:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "操作失败",
+    };
+  }
 }
 

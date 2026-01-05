@@ -111,6 +111,14 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
     label: "已过期",
     variant: "secondary",
   },
+  refund_pending: {
+    label: "待退款",
+    variant: "destructive",
+  },
+  refund_rejected: {
+    label: "退款已拒绝",
+    variant: "outline",
+  },
   refunded: {
     label: "已退款",
     variant: "destructive",

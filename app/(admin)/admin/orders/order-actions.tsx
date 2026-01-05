@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,9 +19,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { MoreHorizontal, CheckCircle2, Eye, Copy, RotateCcw, XCircle, Loader2 } from "lucide-react";
+import { MoreHorizontal, CheckCircle2, Eye, Copy, RotateCcw, XCircle, Loader2, Globe } from "lucide-react";
 import { adminCompleteOrder, approveRefund, rejectRefund } from "@/lib/actions/orders";
 import { toast } from "sonner";
+import type { RefundMode } from "@/lib/payment/ldc";
 
 interface OrderActionsProps {
   orderId: string;
@@ -29,9 +30,10 @@ interface OrderActionsProps {
   status: string;
   refundReason?: string | null;
   refundEnabled?: boolean;
+  refundMode?: RefundMode;
 }
 
-export function OrderActions({ orderId, orderNo, status, refundReason, refundEnabled = false }: OrderActionsProps) {
+export function OrderActions({ orderId, orderNo, status, refundReason, refundEnabled = false, refundMode = 'disabled' }: OrderActionsProps) {
   const [isPending, startTransition] = useTransition();
   const [refundDialogOpen, setRefundDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -52,16 +54,58 @@ export function OrderActions({ orderId, orderNo, status, refundReason, refundEna
     });
   };
 
-  const handleApproveRefund = () => {
-    startTransition(async () => {
-      const result = await approveRefund(orderId);
-      if (result.success) {
-        toast.success(result.message);
-        setRefundDialogOpen(false);
-      } else {
-        toast.error(result.message);
+  /**
+   * 客户端退款：打开新窗口，通过表单提交绕过 CORS
+   */
+  const handleClientRefund = (): void => {
+    // 打开退款页面，该页面会通过表单提交到 LDC API
+    const refundWindow = window.open(
+      `/admin/refund/${orderId}`,
+      "refund_window",
+      "width=600,height=700,scrollbars=yes"
+    );
+
+    if (!refundWindow) {
+      toast.error("无法打开退款窗口，请检查是否被浏览器拦截");
+      return;
+    }
+
+    toast.info("已打开退款窗口，请在新窗口中确认退款结果");
+    setRefundDialogOpen(false);
+  };
+
+  // 监听退款成功消息
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === "refund_success" && event.data?.orderId === orderId) {
+        toast.success("退款成功，页面即将刷新");
+        // 刷新页面以更新订单列表
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
       }
-    });
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [orderId]);
+
+  const handleApproveRefund = () => {
+    if (refundMode === 'client') {
+      // 客户端模式：打开新窗口处理退款
+      handleClientRefund();
+    } else {
+      // 代理模式：服务端调用
+      startTransition(async () => {
+        const result = await approveRefund(orderId);
+        if (result.success) {
+          toast.success("退款成功");
+          setRefundDialogOpen(false);
+        } else {
+          toast.error(result.message);
+        }
+      });
+    }
   };
 
   const handleRejectRefund = () => {
@@ -143,16 +187,36 @@ export function OrderActions({ orderId, orderNo, status, refundReason, refundEna
       <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>确认通过退款</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              确认通过退款
+              {refundMode === 'client' && (
+                <span className="inline-flex items-center gap-1 text-xs font-normal bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                  <Globe className="h-3 w-3" />
+                  客户端模式
+                </span>
+              )}
+            </DialogTitle>
             <DialogDescription>
-              通过后将调用支付平台退款接口，退还用户积分
+              {refundMode === 'client' 
+                ? "将通过浏览器直接调用支付平台退款接口（可绕过 CF 验证）"
+                : "通过后将调用支付平台退款接口，退还用户积分"
+              }
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 space-y-3">
             <div className="rounded-lg bg-muted p-3 text-sm">
               <p className="font-medium mb-1">退款原因：</p>
               <p className="text-muted-foreground">{refundReason || "未填写"}</p>
             </div>
+            {refundMode === 'client' && (
+              <div className="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-3 text-sm text-amber-800 dark:text-amber-200">
+                <p className="font-medium mb-1">⚠️ 客户端模式说明：</p>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>如遇 CF 验证，请先访问 credit.linux.do 完成验证后重试</li>
+                  <li>确保浏览器没有开启广告拦截或隐私模式</li>
+                </ul>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
