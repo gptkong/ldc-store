@@ -221,7 +221,7 @@ export function Header({ siteName = "LDC Store" }: HeaderProps) {
               <Button
                 variant="outline"
                 size="icon-sm"
-                className="sm:hidden"
+                className="sm:hidden rounded-full"
                 onClick={handleLogin}
                 aria-label="Linux DO Connect 登录"
               >
