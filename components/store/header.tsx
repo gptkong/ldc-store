@@ -22,7 +22,42 @@ interface HeaderProps {
   siteName?: string;
 }
 
-type StoreIconEasterEggVariant = "default" | "mint" | "amber" | "pink";
+type StoreIconEasterEggVariant =
+  | "default"
+  | "mint"
+  | "amber"
+  | "pink"
+  | "sky"
+  | "violet"
+  | "lime"
+  | "cyan"
+  | "rose"
+  | "indigo";
+
+const STORE_ICON_EASTER_EGG_VARIANTS: StoreIconEasterEggVariant[] = [
+  "mint",
+  "amber",
+  "pink",
+  "sky",
+  "violet",
+  "lime",
+  "cyan",
+  "rose",
+  "indigo",
+];
+
+const STORE_ICON_VARIANT_STYLES: Record<StoreIconEasterEggVariant, string> = {
+  default: "bg-primary/10 text-primary ring-border/50",
+  mint: "bg-emerald-500/15 text-emerald-700 ring-emerald-500/30 dark:text-emerald-400",
+  amber: "bg-amber-500/15 text-amber-800 ring-amber-500/30 dark:text-amber-400",
+  pink: "bg-pink-500/15 text-pink-800 ring-pink-500/30 dark:text-pink-400",
+  sky: "bg-sky-500/15 text-sky-800 ring-sky-500/30 dark:text-sky-400",
+  violet: "bg-violet-500/15 text-violet-800 ring-violet-500/30 dark:text-violet-400",
+  lime: "bg-lime-500/15 text-lime-800 ring-lime-500/30 dark:text-lime-400",
+  cyan: "bg-cyan-500/15 text-cyan-800 ring-cyan-500/30 dark:text-cyan-400",
+  rose: "bg-rose-500/15 text-rose-800 ring-rose-500/30 dark:text-rose-400",
+  indigo: "bg-indigo-500/15 text-indigo-800 ring-indigo-500/30 dark:text-indigo-400",
+};
 
 export function Header({ siteName = "LDC Store" }: HeaderProps) {
   const { data: session, status } = useSession();
@@ -58,7 +93,7 @@ export function Header({ siteName = "LDC Store" }: HeaderProps) {
     setStoreIconEasterEggKey((prev) => prev + 1);
 
     setStoreIconVariant((current) => {
-      const variants: StoreIconEasterEggVariant[] = ["mint", "amber", "pink"];
+      const variants = STORE_ICON_EASTER_EGG_VARIANTS;
       if (variants.length === 0) return "default";
       const randomIndex = Math.floor(Math.random() * variants.length);
       const picked = variants[randomIndex];
@@ -97,13 +132,7 @@ export function Header({ siteName = "LDC Store" }: HeaderProps) {
             className={[
               "inline-flex size-8 items-center justify-center rounded-md ring-1 transition-colors",
               storeIconEasterEggKey > 0 ? "animate-ldc-store-shake" : "",
-              storeIconVariant === "default"
-                ? "bg-primary/10 text-primary ring-border/50"
-                : storeIconVariant === "mint"
-                  ? "bg-emerald-500/15 text-emerald-700 ring-emerald-500/30 dark:text-emerald-400"
-                  : storeIconVariant === "amber"
-                    ? "bg-amber-500/15 text-amber-800 ring-amber-500/30 dark:text-amber-400"
-                    : "bg-pink-500/15 text-pink-800 ring-pink-500/30 dark:text-pink-400",
+              STORE_ICON_VARIANT_STYLES[storeIconVariant],
             ]
               .filter(Boolean)
               .join(" ")}
