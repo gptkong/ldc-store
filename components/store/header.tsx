@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { User, LogOut, Package, Search } from "lucide-react";
+import { User, LogOut, Package, Search, Store } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LinuxDoLogo } from "@/components/icons/linuxdo-logo";
 import { Button } from "@/components/ui/button";
@@ -47,12 +47,16 @@ export function Header({ siteName = "LDC Store" }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="font-semibold">
-          {siteName}
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
+        {/* 左侧标题需要可收缩：移动端空间有限，必须允许截断，避免把右侧操作区挤出屏幕 */}
+        <Link href="/" className="flex min-w-0 flex-1 items-center gap-2 font-semibold">
+          <span className="inline-flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary ring-1 ring-border/50">
+            <Store className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 truncate max-w-[45vw] sm:max-w-none">{siteName}</span>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           {/* 桌面端搜索框 */}
           <div className="hidden md:block w-72">
             {/* SearchBar 内部使用 useSearchParams，静态预渲染时会触发 CSR bailout；必须包在 Suspense 里避免 build 失败。 */}
@@ -66,7 +70,7 @@ export function Header({ siteName = "LDC Store" }: HeaderProps) {
           {/* 移动端搜索入口 */}
           <Popover open={mobileSearchOpen} onOpenChange={setMobileSearchOpen}>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden" aria-label="搜索">
+              <Button variant="ghost" size="icon-sm" className="md:hidden" aria-label="搜索">
                 <Search className="h-4 w-4" />
               </Button>
             </PopoverTrigger>
@@ -125,10 +129,27 @@ export function Header({ siteName = "LDC Store" }: HeaderProps) {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button variant="outline" size="sm" onClick={handleLogin}>
-              <LinuxDoLogo className="mr-2 h-4 w-4" />
-              Linux DO Connect
-            </Button>
+            <>
+              {/* 移动端用 icon 按钮：避免 Header 右侧溢出，且点击目标仍足够大 */}
+              <Button
+                variant="outline"
+                size="icon-sm"
+                className="sm:hidden"
+                onClick={handleLogin}
+                aria-label="Linux DO Connect 登录"
+              >
+                <LinuxDoLogo className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="hidden sm:inline-flex"
+                onClick={handleLogin}
+              >
+                <LinuxDoLogo className="mr-2 h-4 w-4" />
+                Linux DO Connect
+              </Button>
+            </>
           )}
         </div>
       </div>
