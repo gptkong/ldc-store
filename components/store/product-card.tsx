@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpRight, Flame, Package, Sparkles, TrendingUp } from "lucide-react";
+import { RestockRequestInline } from "@/components/store/restock-request-inline";
 
 interface ProductCardProps {
   id: string;
@@ -17,9 +18,16 @@ interface ProductCardProps {
     name: string;
     slug: string;
   } | null;
+  restockRequestCount?: number;
+  restockRequesters?: Array<{
+    userId: string;
+    username: string;
+    userImage?: string | null;
+  }>;
 }
 
 export function ProductCard({
+  id,
   name,
   slug,
   description,
@@ -30,6 +38,8 @@ export function ProductCard({
   isFeatured,
   salesCount,
   category,
+  restockRequestCount = 0,
+  restockRequesters = [],
 }: ProductCardProps) {
   const isOutOfStock = stock === 0;
   const hasDiscount = originalPrice && parseFloat(originalPrice) > parseFloat(price);
@@ -38,10 +48,18 @@ export function ProductCard({
     : 0;
 
   return (
-    <Link
-      href={`/product/${slug}`}
-      className="group relative flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-0 active:shadow-lg motion-reduce:transform-none motion-reduce:hover:translate-y-0"
+    <div
+      className="group relative flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/10 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary/30 focus-within:ring-offset-2 focus-within:ring-offset-background active:translate-y-0 active:shadow-lg motion-reduce:transform-none motion-reduce:hover:translate-y-0"
     >
+      <Link
+        href={`/product/${slug}`}
+        aria-label={`查看商品：${name}`}
+        className="absolute inset-0 z-10 rounded-2xl focus:outline-none"
+      >
+        <span className="sr-only">查看商品：{name}</span>
+      </Link>
+
+      <div className="relative z-20 flex flex-col pointer-events-none">
       {/* Cover：图像层级更“干净”，内容层与图像层用柔和分割，避免信息挤在同一层导致阅读压力 */}
       <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-muted/40 via-muted/20 to-muted/40">
         {coverImage ? (
@@ -82,10 +100,24 @@ export function ProductCard({
 
         {/* Stock badge */}
         {isOutOfStock && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-            <Badge variant="secondary" className="text-sm font-medium px-4 py-1.5">
-              已售罄
-            </Badge>
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+            <div className="pointer-events-auto w-[calc(100%-1.5rem)] max-w-[18rem] rounded-xl border bg-background/90 p-3 shadow-sm shadow-primary/10 backdrop-blur">
+              <div className="flex items-center justify-between gap-2">
+                <Badge variant="secondary" className="text-xs font-medium px-3 py-1">
+                  已售罄
+                </Badge>
+                <span className="text-xs text-muted-foreground">想要补货？</span>
+              </div>
+              <div className="mt-2">
+                <RestockRequestInline
+                  productId={id}
+                  productName={name}
+                  initialCount={restockRequestCount}
+                  initialRequesters={restockRequesters}
+                  maxAvatars={4}
+                />
+              </div>
+            </div>
           </div>
         )}
 
@@ -146,9 +178,10 @@ export function ProductCard({
           )}
         </div>
       </div>
+      </div>
 
       {/* Hover accent line */}
-      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary via-primary/80 to-primary scale-x-0 transition-transform duration-300 group-hover:scale-x-100 group-focus-within:scale-x-100" />
-    </Link>
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-20 h-0.5 bg-gradient-to-r from-primary via-primary/80 to-primary scale-x-0 transition-transform duration-300 group-hover:scale-x-100 group-focus-within:scale-x-100" />
+    </div>
   );
 }

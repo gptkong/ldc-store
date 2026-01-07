@@ -7,6 +7,7 @@ import { ChevronLeft } from "lucide-react";
 import { OrderForm } from "./order-form";
 import { renderMarkdownToSafeHtml } from "@/lib/markdown";
 import { ProductImageGallery } from "./product-image-gallery";
+import { RestockRequestInline } from "@/components/store/restock-request-inline";
 
 // ISR: 每 60 秒重新验证页面缓存
 export const revalidate = 60;
@@ -102,9 +103,24 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       {/* Order Form */}
       {isOutOfStock ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
-          <p className="font-medium text-destructive">商品暂时缺货</p>
-          <p className="mt-1 text-sm text-muted-foreground">请稍后再来查看</p>
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-6">
+          <div className="text-center">
+            <p className="font-medium text-destructive">商品暂时缺货</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              你可以先催补货，我们会根据需求优先补充库存。
+            </p>
+          </div>
+
+          <div className="mt-4 rounded-xl border bg-background/70 p-4">
+            <RestockRequestInline
+              productId={product.id}
+              productName={product.name}
+              initialCount={product.restockRequestCount}
+              initialRequesters={product.restockRequesters}
+              maxAvatars={6}
+              size="md"
+            />
+          </div>
         </div>
       ) : (
         <div className="rounded-lg border p-6">

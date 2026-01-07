@@ -15,6 +15,13 @@
       "when": 1736000000000,
       "tag": "0001_add_refund_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767776612810,
+      "tag": "0002_add_restock_requests",
+      "breakpoints": true
     }
   ]
 }

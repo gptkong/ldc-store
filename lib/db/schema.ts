@@ -189,6 +189,25 @@ export const announcements = pgTable("announcements", {
 });
 
 // ============================================
+// Restock Requests Table (催补货请求)
+// ============================================
+
+export const restockRequests = pgTable("restock_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: uuid("product_id").references(() => products.id, { onDelete: "cascade" }).notNull(),
+  userId: text("user_id").notNull(),
+  username: text("username").notNull(),
+  userImage: text("user_image"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index("restock_requests_product_id_idx").on(table.productId),
+  index("restock_requests_user_id_idx").on(table.userId),
+  index("restock_requests_created_at_idx").on(table.createdAt),
+  // 关键：同一用户对同一商品只记录一次，避免计数被刷
+  uniqueIndex("restock_requests_product_user_idx").on(table.productId, table.userId),
+]);
+
+// ============================================
 // Login Rate Limits Table (登录限流)
 // ============================================
 
@@ -214,6 +233,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     references: [categories.id],
   }),
   cards: many(cards),
+  restockRequests: many(restockRequests),
 }));
 
 export const cardsRelations = relations(cards, ({ one }) => ({
@@ -233,6 +253,13 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     references: [products.id],
   }),
   cards: many(cards),
+}));
+
+export const restockRequestsRelations = relations(restockRequests, ({ one }) => ({
+  product: one(products, {
+    fields: [restockRequests.productId],
+    references: [products.id],
+  }),
 }));
 
 // ============================================
@@ -256,6 +283,9 @@ export type NewSetting = typeof settings.$inferInsert;
 
 export type Announcement = typeof announcements.$inferSelect;
 export type NewAnnouncement = typeof announcements.$inferInsert;
+
+export type RestockRequest = typeof restockRequests.$inferSelect;
+export type NewRestockRequest = typeof restockRequests.$inferInsert;
 
 export type CardStatus = (typeof cardStatusEnum.enumValues)[number];
 export type OrderStatus = (typeof orderStatusEnum.enumValues)[number];

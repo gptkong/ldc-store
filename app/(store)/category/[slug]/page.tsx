@@ -87,6 +87,8 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
               isFeatured={product.isFeatured}
               salesCount={product.salesCount}
               category={product.category}
+              restockRequestCount={product.restockRequestCount}
+              restockRequesters={product.restockRequesters}
             />
           ))}
         </div>
@@ -108,4 +110,3 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     </div>
   );
 }
-

@@ -219,6 +219,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 isFeatured={product.isFeatured}
                 salesCount={product.salesCount}
                 category={product.category}
+                restockRequestCount={product.restockRequestCount}
+                restockRequesters={product.restockRequesters}
               />
             ))}
           </div>

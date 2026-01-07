@@ -10,6 +10,7 @@ import {
 } from "@/lib/validations/product";
 import { requireAdmin } from "@/lib/auth-utils";
 import { revalidateProductAndRelatedCache } from "@/lib/cache";
+import { getRestockSummaryForProducts } from "@/lib/actions/restock-requests";
 
 // 节流：最多每 60 秒检查一次过期订单
 let lastExpireCheck = 0;
@@ -118,9 +119,16 @@ export async function getActiveProducts(options?: {
 
   const stockMap = new Map(stockCounts.map((s) => [s.productId, s.count]));
 
+  const restockSummary = await getRestockSummaryForProducts({
+    productIds,
+    maxRequesters: 5,
+  });
+
   return productList.map((product) => ({
     ...product,
     stock: stockMap.get(product.id) || 0,
+    restockRequestCount: restockSummary[product.id]?.count ?? 0,
+    restockRequesters: restockSummary[product.id]?.requesters ?? [],
   }));
 }
 
@@ -150,9 +158,16 @@ export async function getProductBySlug(slug: string) {
     .from(cards)
     .where(and(eq(cards.productId, product.id), eq(cards.status, "available")));
 
+  const restockSummary = await getRestockSummaryForProducts({
+    productIds: [product.id],
+    maxRequesters: 8,
+  });
+
   return {
     ...product,
     stock: stockCount?.count || 0,
+    restockRequestCount: restockSummary[product.id]?.count ?? 0,
+    restockRequesters: restockSummary[product.id]?.requesters ?? [],
   };
 }
 
@@ -359,10 +374,17 @@ export async function searchProducts(
 
   const stockMap = new Map(stockCounts.map((s) => [s.productId, s.count]));
 
+  const restockSummary = await getRestockSummaryForProducts({
+    productIds,
+    maxRequesters: 5,
+  });
+
   return {
     items: productList.map((product) => ({
       ...product,
       stock: stockMap.get(product.id) || 0,
+      restockRequestCount: restockSummary[product.id]?.count ?? 0,
+      restockRequesters: restockSummary[product.id]?.requesters ?? [],
     })),
     total: count ?? 0,
   };

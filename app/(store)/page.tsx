@@ -57,6 +57,8 @@ async function HomeProductSection() {
             isFeatured={product.isFeatured}
             salesCount={product.salesCount}
             category={product.category}
+            restockRequestCount={product.restockRequestCount}
+            restockRequesters={product.restockRequesters}
           />
         </FilterableProductItem>
       ))}
