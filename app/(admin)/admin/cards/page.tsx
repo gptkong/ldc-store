@@ -49,6 +49,13 @@ interface CardsPageProps {
 
 async function getProductsWithStock() {
   const productList = await db.query.products.findMany({
+    // 为什么这样做：该页面只需要商品 id/name；避免把 content/images 等大字段拉出来，减少 RSC 体积与查询开销。
+    columns: {
+      id: true,
+      name: true,
+      sortOrder: true,
+      createdAt: true,
+    },
     orderBy: [asc(products.sortOrder), desc(products.createdAt)],
   });
 

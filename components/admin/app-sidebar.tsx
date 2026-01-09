@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Package,
@@ -98,6 +98,8 @@ const settingsNavItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  // 为什么这样做：后台路由多为动态 Server Component，主动 prefetch 能把等待从“点击后”前移到“悬停时”，降低体感延迟。
+  const router = useRouter();
   const { data: session } = useSession();
 
   const isActive = (href: string) => {
@@ -141,7 +143,11 @@ export function AppSidebar() {
                     isActive={isActive(item.href)}
                     tooltip={item.title}
                   >
-                    <Link href={item.href}>
+                    <Link
+                      href={item.href}
+                      onMouseEnter={() => router.prefetch(item.href)}
+                      onFocus={() => router.prefetch(item.href)}
+                    >
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>
@@ -163,7 +169,11 @@ export function AppSidebar() {
                     isActive={isActive(item.href)}
                     tooltip={item.title}
                   >
-                    <Link href={item.href}>
+                    <Link
+                      href={item.href}
+                      onMouseEnter={() => router.prefetch(item.href)}
+                      onFocus={() => router.prefetch(item.href)}
+                    >
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>

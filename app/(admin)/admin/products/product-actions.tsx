@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -26,6 +27,11 @@ export function ProductActions({
   isActive,
 }: ProductActionsProps) {
   const [isPending, startTransition] = useTransition();
+
+  // 为什么这样做：编辑入口在 Dropdown 内，Link 的默认预取很难在点击前触发；这里在打开菜单时提前 prefetch，减少“点编辑卡 3s”的体感。
+  const router = useRouter();
+  const editHref = `/admin/products/${productId}/edit`;
+  const cardsHref = `/admin/cards?product=${productId}`;
 
   const handleToggleActive = () => {
     startTransition(async () => {
@@ -54,7 +60,13 @@ export function ProductActions({
   };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (!open) return;
+        router.prefetch(editHref);
+        router.prefetch(cardsHref);
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" disabled={isPending}>
           <MoreHorizontal className="h-4 w-4" />
@@ -62,13 +74,13 @@ export function ProductActions({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem asChild>
-          <Link href={`/admin/products/${productId}/edit`}>
+          <Link href={editHref}>
             <Pencil className="mr-2 h-4 w-4" />
             编辑
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href={`/admin/cards?product=${productId}`}>
+          <Link href={cardsHref}>
             <CreditCard className="mr-2 h-4 w-4" />
             管理卡密
           </Link>

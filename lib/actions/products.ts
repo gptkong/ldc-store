@@ -278,6 +278,20 @@ export async function getAllProducts(options?: {
 
   const productList = await db.query.products.findMany({
     where: conditions.length > 0 ? and(...conditions) : undefined,
+    // 为什么这样做：后台列表页只展示少量字段；避免把 content/images 等大字段从 DB 拉出来，减少序列化与 RSC 传输成本。
+    columns: {
+      id: true,
+      categoryId: true,
+      name: true,
+      slug: true,
+      price: true,
+      originalPrice: true,
+      coverImage: true,
+      isActive: true,
+      salesCount: true,
+      sortOrder: true,
+      createdAt: true,
+    },
     with: {
       category: {
         columns: {
