@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { cache } from "react";
 import { getProductBySlug } from "@/lib/actions/products";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -11,6 +12,11 @@ import { RestockRequestInline } from "@/components/store/restock-request-inline"
 
 // ISR: 每 60 秒重新验证页面缓存
 export const revalidate = 60;
+// 为什么这样做：商品详情页不包含用户态的服务端渲染内容（登录态在客户端判断），因此可以强制静态化 + ISR，让首跳与回跳都走缓存。
+export const dynamic = "force-static";
+
+// 为什么这样做：generateMetadata 与页面本体都会读同一份商品数据；用 request 级 memoization 避免重复查库（首跳/预取时延会明显下降）。
+const getProductBySlugCached = cache(getProductBySlug);
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -18,7 +24,7 @@ interface ProductPageProps {
 
 export async function generateMetadata({ params }: ProductPageProps) {
   const { slug } = await params;
-  const product = await getProductBySlug(slug);
+  const product = await getProductBySlugCached(slug);
 
   if (!product) {
     return { title: "商品未找到" };
@@ -32,7 +38,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
-  const product = await getProductBySlug(slug);
+  const product = await getProductBySlugCached(slug);
 
   if (!product) {
     notFound();

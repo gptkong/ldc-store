@@ -10,7 +10,10 @@ import {
 } from "@/lib/validations/product";
 import { requireAdmin } from "@/lib/auth-utils";
 import { revalidateProductAndRelatedCache } from "@/lib/cache";
-import { getRestockSummaryForProducts } from "@/lib/actions/restock-requests";
+import {
+  getRestockSummaryForProducts,
+  type RestockSummary,
+} from "@/lib/actions/restock-requests";
 
 // 节流：最多每 60 秒检查一次过期订单
 let lastExpireCheck = 0;
@@ -82,6 +85,21 @@ export async function getActiveProducts(options?: {
 
   const productList = await db.query.products.findMany({
     where: and(...conditions),
+    // 为什么这样做：首页/分类页只需要展示用字段；避免把 content/images 等大字段从 DB 拉出来，降低首屏与预取成本。
+    columns: {
+      id: true,
+      categoryId: true,
+      name: true,
+      slug: true,
+      description: true,
+      price: true,
+      originalPrice: true,
+      coverImage: true,
+      isFeatured: true,
+      salesCount: true,
+      sortOrder: true,
+      createdAt: true,
+    },
     with: {
       category: {
         columns: {
@@ -119,10 +137,17 @@ export async function getActiveProducts(options?: {
 
   const stockMap = new Map(stockCounts.map((s) => [s.productId, s.count]));
 
-  const restockSummary = await getRestockSummaryForProducts({
-    productIds,
-    maxRequesters: 5,
-  });
+  // 为什么这样做：催补货入口只在“已售罄”时展示；对有库存商品统计催补货属于无意义开销，会放大首页/分类页渲染与 Link 预取压力。
+  const outOfStockProductIds = productIds.filter(
+    (productId) => (stockMap.get(productId) ?? 0) === 0
+  );
+  const restockSummary: Record<string, RestockSummary> =
+    outOfStockProductIds.length > 0
+      ? await getRestockSummaryForProducts({
+          productIds: outOfStockProductIds,
+          maxRequesters: 5,
+        })
+      : {};
 
   return productList.map((product) => ({
     ...product,
@@ -141,6 +166,25 @@ export async function getProductBySlug(slug: string) {
   
   const product = await db.query.products.findFirst({
     where: and(eq(products.slug, slug), eq(products.isActive, true)),
+    // 为什么这样做：详情页展示字段明确，精选 columns 可以减少 DB 传输与序列化成本（尤其是 content/images 等可变大字段）。
+    columns: {
+      id: true,
+      categoryId: true,
+      name: true,
+      slug: true,
+      description: true,
+      content: true,
+      price: true,
+      originalPrice: true,
+      coverImage: true,
+      images: true,
+      isFeatured: true,
+      minQuantity: true,
+      maxQuantity: true,
+      salesCount: true,
+      createdAt: true,
+      updatedAt: true,
+    },
     with: {
       category: true,
     },
@@ -158,14 +202,20 @@ export async function getProductBySlug(slug: string) {
     .from(cards)
     .where(and(eq(cards.productId, product.id), eq(cards.status, "available")));
 
-  const restockSummary = await getRestockSummaryForProducts({
-    productIds: [product.id],
-    maxRequesters: 8,
-  });
+  const stock = stockCount?.count || 0;
+
+  // 为什么这样做：详情页只有在售罄时才展示“催补货”，因此对有库存商品不必额外查询统计信息。
+  const restockSummary: Record<string, RestockSummary> =
+    stock === 0
+      ? await getRestockSummaryForProducts({
+          productIds: [product.id],
+          maxRequesters: 8,
+        })
+      : {};
 
   return {
     ...product,
-    stock: stockCount?.count || 0,
+    stock,
     restockRequestCount: restockSummary[product.id]?.count ?? 0,
     restockRequesters: restockSummary[product.id]?.requesters ?? [],
   };
