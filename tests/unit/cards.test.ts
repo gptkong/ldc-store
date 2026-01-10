@@ -26,6 +26,7 @@ describe("createCard", () => {
     const result = await createCard({
       productId: "00000000-0000-0000-0000-000000000000",
       content: "card-001",
+      deduplicate: true,
     });
 
     expect(result.success).toBe(false);
@@ -43,6 +44,7 @@ describe("createCard", () => {
     const result = await createCard({
       productId: "not-a-uuid",
       content: "card-001",
+      deduplicate: true,
     });
 
     expect(result.success).toBe(false);
@@ -60,10 +62,10 @@ describe("createCard", () => {
     const result = await createCard({
       productId: "00000000-0000-0000-0000-000000000000",
       content: "   ",
+      deduplicate: true,
     });
 
     expect(result.success).toBe(false);
     expect(result.message).toBe("卡密内容不能为空");
   });
 });
-

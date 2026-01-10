@@ -29,6 +29,19 @@ describe("validations/card", () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data.content).toBe("card-001");
+    expect(result.data.deduplicate).toBe(true);
+  });
+
+  it("createCardSchema 应允许关闭去重开关", () => {
+    const result = createCardSchema.safeParse({
+      productId: "00000000-0000-0000-0000-000000000000",
+      content: "card-001",
+      deduplicate: false,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.deduplicate).toBe(false);
   });
 
   it("importCardsSchema 应通过合法参数并补齐 delimiter 默认值", () => {
@@ -40,6 +53,20 @@ describe("validations/card", () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.data.delimiter).toBe("newline");
+    expect(result.data.deduplicate).toBe(true);
+  });
+
+  it("importCardsSchema 应允许关闭去重开关", () => {
+    const result = importCardsSchema.safeParse({
+      productId: "00000000-0000-0000-0000-000000000000",
+      content: "a\nb\nc",
+      delimiter: "newline",
+      deduplicate: false,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.deduplicate).toBe(false);
   });
 
   it("batchCardOperationSchema 应拒绝空数组", () => {
@@ -61,4 +88,3 @@ describe("validations/card", () => {
     expect(result.success).toBe(false);
   });
 });
-

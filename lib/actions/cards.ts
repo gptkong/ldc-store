@@ -31,7 +31,7 @@ export async function importCards(input: ImportCardsInput) {
     };
   }
 
-  const { productId, content, delimiter } = validationResult.data;
+  const { productId, content, delimiter, deduplicate } = validationResult.data;
 
   // 检查商品是否存在
   const product = await db.query.products.findFirst({
@@ -52,41 +52,66 @@ export async function importCards(input: ImportCardsInput) {
     return { success: false, message: "未找到有效的卡密" };
   }
 
-  // 去重
   const uniqueContents = [...new Set(cardContents)];
   const duplicateCount = cardContents.length - uniqueContents.length;
 
-  // 检查数据库中已存在的卡密
-  const existingCards = await db
-    .select({ content: cards.content })
-    .from(cards)
-    .where(
-      and(
-        eq(cards.productId, productId),
-        inArray(cards.content, uniqueContents)
-      )
-    );
-
-  const existingSet = new Set(existingCards.map((c) => c.content));
-  const newContents = uniqueContents.filter((c) => !existingSet.has(c));
-
-  if (newContents.length === 0) {
-    return {
-      success: false,
-      message: "所有卡密都已存在",
-      stats: {
-        total: cardContents.length,
-        duplicateInInput: duplicateCount,
-        existingInDb: existingCards.length,
-        imported: 0,
-      },
-    };
-  }
-
-  // 批量插入
   try {
+    if (deduplicate) {
+      // 为什么这样做：默认强制去重，避免同一商品出现重复卡密导致“重复发货”风险。
+      const existingCards = await db
+        .select({ content: cards.content })
+        .from(cards)
+        .where(
+          and(
+            eq(cards.productId, productId),
+            inArray(cards.content, uniqueContents)
+          )
+        );
+
+      const existingSet = new Set(existingCards.map((c) => c.content));
+      const newContents = uniqueContents.filter((c) => !existingSet.has(c));
+
+      if (newContents.length === 0) {
+        return {
+          success: false,
+          message: "所有卡密都已存在",
+          stats: {
+            total: cardContents.length,
+            duplicateInInput: duplicateCount,
+            existingInDb: existingCards.length,
+            imported: 0,
+            skipped: cardContents.length,
+            deduplicate: true,
+          },
+        };
+      }
+
+      await db.insert(cards).values(
+        newContents.map((content) => ({
+          productId,
+          content,
+          status: "available" as const,
+        }))
+      );
+
+      await revalidateCardCache();
+
+      return {
+        success: true,
+        message: `成功导入 ${newContents.length} 个卡密`,
+        stats: {
+          total: cardContents.length,
+          duplicateInInput: duplicateCount,
+          existingInDb: existingCards.length,
+          imported: newContents.length,
+          skipped: cardContents.length - newContents.length,
+          deduplicate: true,
+        },
+      };
+    }
+
     await db.insert(cards).values(
-      newContents.map((content) => ({
+      cardContents.map((content) => ({
         productId,
         content,
         status: "available" as const,
@@ -97,12 +122,14 @@ export async function importCards(input: ImportCardsInput) {
 
     return {
       success: true,
-      message: `成功导入 ${newContents.length} 个卡密`,
+      message: `成功导入 ${cardContents.length} 个卡密（未去重）`,
       stats: {
         total: cardContents.length,
         duplicateInInput: duplicateCount,
-        existingInDb: existingCards.length,
-        imported: newContents.length,
+        existingInDb: 0,
+        imported: cardContents.length,
+        skipped: 0,
+        deduplicate: false,
       },
     };
   } catch (error) {
@@ -129,7 +156,7 @@ export async function createCard(input: CreateCardInput) {
     };
   }
 
-  const { productId, content } = validationResult.data;
+  const { productId, content, deduplicate } = validationResult.data;
 
   // 检查商品是否存在
   const product = await db.query.products.findFirst({
@@ -142,14 +169,16 @@ export async function createCard(input: CreateCardInput) {
   }
 
   try {
-    // 为什么这样做：卡密属于库存，一旦重复会导致“卖出重复内容”，必须在写入前做强校验。
-    const duplicateCard = await db.query.cards.findFirst({
-      where: and(eq(cards.productId, productId), eq(cards.content, content)),
-      columns: { id: true },
-    });
+    if (deduplicate) {
+      // 为什么这样做：默认强制去重，避免同一商品出现重复卡密导致“重复发货”风险。
+      const duplicateCard = await db.query.cards.findFirst({
+        where: and(eq(cards.productId, productId), eq(cards.content, content)),
+        columns: { id: true },
+      });
 
-    if (duplicateCard) {
-      return { success: false, message: "该卡密内容已存在" };
+      if (duplicateCard) {
+        return { success: false, message: "该卡密内容已存在" };
+      }
     }
 
     const [created] = await db

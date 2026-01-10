@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 
 import { createCard } from "@/lib/actions/cards";
 
@@ -30,6 +31,7 @@ export function CreateCardDialog({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState("");
+  const [deduplicate, setDeduplicate] = useState(true);
   const [isPending, startTransition] = useTransition();
 
   const handleCreate = () => {
@@ -48,6 +50,7 @@ export function CreateCardDialog({
       const result = await createCard({
         productId,
         content: trimmed,
+        deduplicate,
       });
 
       if (result.success) {
@@ -78,10 +81,27 @@ export function CreateCardDialog({
             <Plus className="h-5 w-5" />
             新增卡密
           </DialogTitle>
-          <DialogDescription>单条新增；多条请使用「导入卡密」。</DialogDescription>
+          <DialogDescription>
+            单条新增；多条请使用「导入卡密」。默认开启去重以避免重复发货。
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4 rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+            <div className="space-y-1">
+              <Label htmlFor="create-card-deduplicate">去重</Label>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                关闭后允许同一商品下出现重复卡密（谨慎使用）。
+              </p>
+            </div>
+            <Switch
+              id="create-card-deduplicate"
+              checked={deduplicate}
+              onCheckedChange={setDeduplicate}
+              disabled={isPending}
+            />
+          </div>
+
           <div className="space-y-2">
             <Label>卡密内容</Label>
             <Textarea
@@ -113,4 +133,3 @@ export function CreateCardDialog({
     </Dialog>
   );
 }
-

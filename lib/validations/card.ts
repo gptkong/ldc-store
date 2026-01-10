@@ -5,12 +5,14 @@ export const importCardsSchema = z.object({
   productId: z.string().uuid("无效的商品ID"),
   content: z.string().min(1, "卡密内容不能为空"),
   delimiter: z.enum(["newline", "comma"]).default("newline"),
+  deduplicate: z.boolean().default(true),
 });
 
 // 新增单条卡密验证
 export const createCardSchema = z.object({
   productId: z.string().uuid("无效的商品ID"),
   content: z.string().trim().min(1, "卡密内容不能为空").max(1000, "卡密内容过长"),
+  deduplicate: z.boolean().default(true),
 });
 
 // 单个卡密操作验证

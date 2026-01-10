@@ -1,16 +1,16 @@
 export const dynamic = "force-dynamic";
 
 import { redirect } from "next/navigation";
-import Link from "next/link";
 
-import { db, products, cards, orders, cardStatusEnum, type CardStatus } from "@/lib/db";
+import { db, products, cards, orders, categories, cardStatusEnum, type CardStatus } from "@/lib/db";
 import { eq, sql, desc, asc, and, ilike, inArray } from "drizzle-orm";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CreditCard, Package } from "lucide-react";
+import { CreditCard } from "lucide-react";
 import { ImportCardsDialog } from "./import-cards-dialog";
 import { CreateCardDialog } from "./create-card-dialog";
 import { CardsClient } from "./cards-client";
+import { ProductSelector } from "./product-selector";
 import { buildAdminCardsHref, DEFAULT_ADMIN_CARDS_PAGE_SIZE } from "./cards-url";
 import type { AdminCardListItem } from "./cards-table";
 
@@ -44,11 +44,20 @@ interface CardsPageProps {
     orderNo?: string;
     page?: string;
     pageSize?: string;
+    categoryId?: string;
+    productName?: string;
   }>;
 }
 
 async function getProductsWithStock() {
   const productList = await db.query.products.findMany({
+    columns: {
+      id: true,
+      name: true,
+      sortOrder: true,
+      createdAt: true,
+      categoryId: true,
+    },
     orderBy: [asc(products.sortOrder), desc(products.createdAt)],
   });
 
@@ -168,6 +177,8 @@ const stockBadgeConfig: Record<CardStatus, { label: string; className: string }>
 export default async function CardsPage({ searchParams }: CardsPageProps) {
   const params = await searchParams;
   const selectedProductId = params.product;
+  const categoryId = params.categoryId;
+  const productName = (params.productName || "").trim();
 
   const q = (params.q || "").trim();
   const orderNo = (params.orderNo || "").trim();
@@ -177,7 +188,14 @@ export default async function CardsPage({ searchParams }: CardsPageProps) {
   const page = normalizePage(params.page);
   const pageSize = normalizePageSize(params.pageSize);
 
-  const productsWithStock = await getProductsWithStock();
+  const [productsWithStock, categoryList] = await Promise.all([
+    getProductsWithStock(),
+    db.query.categories.findMany({
+      columns: { id: true, name: true },
+      where: eq(categories.isActive, true),
+      orderBy: [asc(categories.sortOrder)],
+    }),
+  ]);
 
   const selectedProduct = selectedProductId
     ? productsWithStock.find((p) => p.id === selectedProductId)
@@ -224,51 +242,16 @@ export default async function CardsPage({ searchParams }: CardsPageProps) {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Package className="h-5 w-5" />
-              选择商品
-            </CardTitle>
+            <CardTitle className="text-base">选择商品</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {productsWithStock.map((product) => (
-              <Link
-                key={product.id}
-                href={buildAdminCardsHref({ productId: product.id })}
-                className={`block rounded-lg border p-3 transition-colors ${
-                  selectedProductId === product.id
-                    ? "border-violet-500 bg-violet-50 dark:bg-violet-950"
-                    : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-zinc-900 dark:text-zinc-50 truncate">
-                    {product.name}
-                  </span>
-                  <Badge
-                    variant={
-                      product.stockStats.available === 0
-                        ? "destructive"
-                        : "secondary"
-                    }
-                  >
-                    {product.stockStats.available}
-                  </Badge>
-                </div>
-                <div className="mt-1 flex gap-2 text-xs text-zinc-500">
-                  <span>已售 {product.stockStats.sold}</span>
-                  {product.stockStats.locked > 0 && (
-                    <span>锁定 {product.stockStats.locked}</span>
-                  )}
-                </div>
-              </Link>
-            ))}
-
-            {productsWithStock.length === 0 && (
-              <div className="py-8 text-center text-zinc-500">
-                <Package className="mx-auto h-10 w-10 text-zinc-300" />
-                <p className="mt-2">暂无商品</p>
-              </div>
-            )}
+          <CardContent>
+            <ProductSelector
+              products={productsWithStock}
+              categories={categoryList}
+              selectedProductId={selectedProductId}
+              categoryId={categoryId}
+              productName={productName}
+            />
           </CardContent>
         </Card>
 

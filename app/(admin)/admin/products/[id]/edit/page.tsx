@@ -47,6 +47,7 @@ export default function EditProductPage({ params }: EditProductPageProps) {
   const [isPending, startTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(true);
   const [categoryOptions, setCategoryOptions] = useState<AdminCategoryOption[]>([]);
+  const [isCategoryLoading, setIsCategoryLoading] = useState(true);
   const router = useRouter();
 
   const form = useForm<ProductInput>({
@@ -73,52 +74,63 @@ export default function EditProductPage({ params }: EditProductPageProps) {
     let isMounted = true;
 
     async function loadProduct() {
-      const [productResult, categoriesResult] = await Promise.allSettled([
-        getProductById(id),
-        getAdminCategories(),
-      ]);
+      // 为什么这样做：分类列表加载慢时不应阻塞编辑表单渲染；优先渲染商品信息，让页面“先出来”，再异步填充分类下拉。
+      setIsLoading(true);
+      setIsCategoryLoading(true);
+      const productPromise = getProductById(id);
+      const categoriesPromise = getAdminCategories();
 
-      if (!isMounted) return;
+      categoriesPromise
+        .then((categories) => {
+          if (!isMounted) return;
+          setCategoryOptions(categories);
+        })
+        .catch((error) => {
+          if (!isMounted) return;
+          console.error("加载分类失败:", error);
+          toast.error("加载分类失败");
+        })
+        .finally(() => {
+          if (!isMounted) return;
+          setIsCategoryLoading(false);
+        });
 
-      if (categoriesResult.status === "fulfilled") {
-        setCategoryOptions(categoriesResult.value);
-      } else {
-        console.error("加载分类失败:", categoriesResult.reason);
-        toast.error("加载分类失败");
-      }
+      try {
+        const product = await productPromise;
 
-      if (productResult.status !== "fulfilled") {
-        console.error("加载商品失败:", productResult.reason);
+        if (!isMounted) return;
+
+        if (!product) {
+          toast.error("商品不存在");
+          router.push("/admin/products");
+          return;
+        }
+
+        form.reset({
+          name: product.name,
+          slug: product.slug,
+          categoryId: product.categoryId ?? null,
+          description: product.description || "",
+          content: product.content || "",
+          price: parseFloat(product.price),
+          originalPrice: product.originalPrice
+            ? parseFloat(product.originalPrice)
+            : undefined,
+          coverImage: product.coverImage || "",
+          isActive: product.isActive,
+          isFeatured: product.isFeatured,
+          sortOrder: product.sortOrder,
+          minQuantity: product.minQuantity,
+          maxQuantity: product.maxQuantity,
+        });
+
+        setIsLoading(false);
+      } catch (error) {
+        if (!isMounted) return;
+        console.error("加载商品失败:", error);
         toast.error("加载商品失败");
         router.push("/admin/products");
-        return;
       }
-
-      const product = productResult.value;
-      if (!product) {
-        toast.error("商品不存在");
-        router.push("/admin/products");
-        return;
-      }
-
-      form.reset({
-        name: product.name,
-        slug: product.slug,
-        categoryId: product.categoryId ?? null,
-        description: product.description || "",
-        content: product.content || "",
-        price: parseFloat(product.price),
-        originalPrice: product.originalPrice
-          ? parseFloat(product.originalPrice)
-          : undefined,
-        coverImage: product.coverImage || "",
-        isActive: product.isActive,
-        isFeatured: product.isFeatured,
-        sortOrder: product.sortOrder,
-        minQuantity: product.minQuantity,
-        maxQuantity: product.maxQuantity,
-      });
-      setIsLoading(false);
     }
 
     loadProduct();
@@ -245,7 +257,11 @@ export default function EditProductPage({ params }: EditProductPageProps) {
                           <SelectContent align="start">
                             <SelectItem value="none">未分类</SelectItem>
                             <SelectSeparator />
-                            {categoryOptions.length > 0 ? (
+                            {isCategoryLoading ? (
+                              <SelectItem value="__loading__" disabled>
+                                加载中...
+                              </SelectItem>
+                            ) : categoryOptions.length > 0 ? (
                               categoryOptions.map((category) => (
                                 <SelectItem key={category.id} value={category.id}>
                                   {category.name}

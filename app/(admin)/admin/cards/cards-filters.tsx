@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 import type { CardStatus } from "@/lib/db";
@@ -93,97 +92,64 @@ export function CardsFilters({
   const resetHref = buildAdminCardsHref({ productId, pageSize });
 
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <form
-          className="flex flex-col gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            submit(e.currentTarget);
-          }}
+    <form
+      className="flex flex-wrap items-center gap-2 mb-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit(e.currentTarget);
+      }}
+    >
+      <div className="relative flex-1 min-w-[180px] max-w-[240px]">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          name="q"
+          defaultValue={q}
+          placeholder="搜索卡密…"
+          className="pl-8 h-8 text-sm"
+          aria-label="搜索卡密"
+        />
+      </div>
+
+      <Input
+        name="orderNo"
+        defaultValue={orderNo}
+        placeholder="订单号"
+        className="h-8 text-sm w-[140px]"
+        aria-label="按订单号查卡密"
+      />
+
+      <Select name="status" defaultValue={status ?? ""} ariaLabel="按状态筛选">
+        <option value="">全部状态</option>
+        {(Object.keys(cardStatusLabel) as CardStatus[]).map((value) => (
+          <option key={value} value={value}>
+            {cardStatusLabel[value]}
+          </option>
+        ))}
+      </Select>
+
+      <Select name="pageSize" defaultValue={String(pageSize)} ariaLabel="每页条数">
+        {[20, 50, 100, 200].map((size) => (
+          <option key={size} value={String(size)}>
+            {size}/页
+          </option>
+        ))}
+      </Select>
+
+      <Button type="submit" size="sm" disabled={isPending}>
+        筛选
+      </Button>
+
+      {hasActiveFilters && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push(resetHref)}
+          disabled={isPending}
         >
-          <div className="grid gap-3 lg:grid-cols-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                name="q"
-                defaultValue={q}
-                placeholder="搜索卡密内容…"
-                className="pl-9 pr-9"
-                aria-label="搜索卡密"
-              />
-              {q ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-                  onClick={() =>
-                    router.push(
-                      buildAdminCardsHref({
-                        productId,
-                        status,
-                        orderNo: orderNo || undefined,
-                        pageSize,
-                      })
-                    )
-                  }
-                  aria-label="清空搜索"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              ) : null}
-            </div>
-
-            <Input
-              name="orderNo"
-              defaultValue={orderNo}
-              placeholder="订单号（支持部分匹配）"
-              aria-label="按订单号查卡密"
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Select
-              name="status"
-              defaultValue={status ?? ""}
-              ariaLabel="按状态筛选"
-            >
-              <option value="">全部状态</option>
-              {(Object.keys(cardStatusLabel) as CardStatus[]).map((value) => (
-                <option key={value} value={value}>
-                  {cardStatusLabel[value]}
-                </option>
-              ))}
-            </Select>
-
-            <Select
-              name="pageSize"
-              defaultValue={String(pageSize)}
-              ariaLabel="每页条数"
-            >
-              {[20, 50, 100, 200].map((size) => (
-                <option key={size} value={String(size)}>
-                  {size}/页
-                </option>
-              ))}
-            </Select>
-
-            <Button type="submit" disabled={isPending}>
-              应用筛选
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push(resetHref)}
-              disabled={isPending || !hasActiveFilters}
-            >
-              重置
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+          <X className="h-4 w-4" />
+        </Button>
+      )}
+    </form>
   );
 }

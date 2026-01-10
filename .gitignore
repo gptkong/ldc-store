@@ -48,3 +48,4 @@ helloagents/
 **/CLAUDE.md
 .zcf/
 .claude/
+.spec-workflow/

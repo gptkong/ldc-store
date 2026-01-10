@@ -38,17 +38,16 @@ describe("CardsFilters", () => {
     fireEvent.change(screen.getByLabelText("按订单号查卡密"), {
       target: { value: "ORDER_1" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "应用筛选" }));
+    fireEvent.click(screen.getByRole("button", { name: "筛选" }));
 
     await waitFor(() => {
-      // 为什么要断言 queryString：确保 trim/默认 pageSize 等归一化逻辑不会回归
       expect(navigationMocks.push).toHaveBeenLastCalledWith(
         "/admin/cards?product=p1&q=abc&status=sold&orderNo=ORDER_1&pageSize=20"
       );
     });
   });
 
-  it("无 active filters 时应禁用重置按钮", () => {
+  it("无 active filters 时不显示重置按钮", () => {
     render(
       <CardsFilters
         productId="p1"
@@ -59,7 +58,7 @@ describe("CardsFilters", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "重置" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "" })).toBeNull();
   });
 
   it("点击重置应回到基础筛选（保留 product 与 pageSize）", () => {
@@ -73,25 +72,11 @@ describe("CardsFilters", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "重置" }));
+    const buttons = screen.getAllByRole("button");
+    const resetButton = buttons.find((btn) => btn.textContent === "");
+    expect(resetButton).toBeDefined();
+    fireEvent.click(resetButton!);
     expect(navigationMocks.push).toHaveBeenLastCalledWith("/admin/cards?product=p1&pageSize=20");
-  });
-
-  it("点击清空搜索应移除 q 参数但保留其他条件", () => {
-    render(
-      <CardsFilters
-        productId="p1"
-        q="abc"
-        status="available"
-        orderNo="ORDER_1"
-        pageSize={20}
-      />
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "清空搜索" }));
-    expect(navigationMocks.push).toHaveBeenLastCalledWith(
-      "/admin/cards?product=p1&status=available&orderNo=ORDER_1&pageSize=20"
-    );
   });
 });
 

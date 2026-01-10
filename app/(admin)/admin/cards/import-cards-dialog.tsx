@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -38,6 +39,7 @@ export function ImportCardsDialog({
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState("");
   const [delimiter, setDelimiter] = useState<"newline" | "comma">("newline");
+  const [deduplicate, setDeduplicate] = useState(true);
   const [isPending, startTransition] = useTransition();
 
   const handleImport = () => {
@@ -51,12 +53,15 @@ export function ImportCardsDialog({
         productId,
         content,
         delimiter,
+        deduplicate,
       });
 
       if (result.success) {
         toast.success(result.message, {
           description: result.stats
-            ? `总计: ${result.stats.total}, 重复: ${result.stats.duplicateInInput + result.stats.existingInDb}, 导入: ${result.stats.imported}`
+            ? result.stats.deduplicate
+              ? `总计: ${result.stats.total}, 跳过: ${result.stats.skipped}, 导入: ${result.stats.imported}`
+              : `总计: ${result.stats.total}, 导入: ${result.stats.imported}（未去重）`
             : undefined,
         });
         setContent("");
@@ -91,11 +96,28 @@ export function ImportCardsDialog({
             批量导入卡密
           </DialogTitle>
           <DialogDescription>
-            将卡密粘贴到下方文本框，系统会自动去重并导入
+            将卡密粘贴到下方文本框，可选择去重或允许重复导入。
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4 rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+            <div className="space-y-1">
+              <Label htmlFor="import-cards-deduplicate">去重</Label>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                {deduplicate
+                  ? "开启后会过滤输入重复与数据库已存在的卡密。"
+                  : "关闭后将按原样导入（允许重复），可能导致重复发货。"}
+              </p>
+            </div>
+            <Switch
+              id="import-cards-deduplicate"
+              checked={deduplicate}
+              onCheckedChange={setDeduplicate}
+              disabled={isPending}
+            />
+          </div>
+
           <div className="space-y-2">
             <Label>分隔方式</Label>
             <Select
