@@ -72,15 +72,15 @@ function ProductGridSkeleton() {
       {Array.from({ length: 3 }).map((_, i) => (
         <div
           key={i}
-          className="flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm"
+          className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm"
         >
-          <Skeleton className="aspect-[4/3] w-full" />
-          <div className="p-4 space-y-3">
+          <Skeleton className="aspect-[16/10] w-full" />
+          <div className="p-3 space-y-3">
             <div className="flex items-start justify-between gap-3">
-              <Skeleton className="h-5 w-3/4" />
-              <Skeleton className="h-6 w-16 rounded-full" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-5 w-14 rounded-full" />
             </div>
-            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-3 w-full" />
             <div className="flex flex-wrap gap-2 pt-2">
               <Skeleton className="h-6 w-20 rounded-full" />
               <Skeleton className="h-6 w-16 rounded-full" />
@@ -112,7 +112,7 @@ export default async function HomePage() {
           fallback={
             <div className="space-y-6">
               <Skeleton className="h-9 w-64" />
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <ProductGridSkeleton />
               </div>
             </div>
