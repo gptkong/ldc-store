@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { getActiveCategories } from "@/lib/actions/categories";
 import { searchProducts } from "@/lib/actions/products";
 
-export const revalidate = 60;
+// 强制动态渲染，避免构建时查询数据库
+export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 12;
 

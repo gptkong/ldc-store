@@ -10,10 +10,8 @@ import { renderMarkdownToSafeHtml } from "@/lib/markdown";
 import { ProductImageGallery } from "./product-image-gallery";
 import { RestockRequestInline } from "@/components/store/restock-request-inline";
 
-// ISR: 每 60 秒重新验证页面缓存
-export const revalidate = 60;
-// 为什么这样做：商品详情页不包含用户态的服务端渲染内容（登录态在客户端判断），因此可以强制静态化 + ISR，让首跳与回跳都走缓存。
-export const dynamic = "force-static";
+// 强制动态渲染，避免构建时查询数据库（docker build 无需 DATABASE_URL）
+export const dynamic = "force-dynamic";
 
 // 为什么这样做：generateMetadata 与页面本体都会读同一份商品数据；用 request 级 memoization 避免重复查库（首跳/预取时延会明显下降）。
 const getProductBySlugCached = cache(getProductBySlug);

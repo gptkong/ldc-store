@@ -6,10 +6,8 @@ import { ProductCard } from "@/components/store/product-card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Package, Grid3X3 } from "lucide-react";
 
-// ISR: 每 60 秒重新验证页面缓存
-export const revalidate = 60;
-// 为什么这样做：分类页同样不依赖用户态（只展示商品列表），强制静态化 + ISR 可显著降低首页跳转与分类切换的 TTFB。
-export const dynamic = "force-static";
+// 强制动态渲染，避免构建时查询数据库（docker build 无需 DATABASE_URL）
+export const dynamic = "force-dynamic";
 
 interface CategoryPageProps {
   params: Promise<{ slug: string }>;

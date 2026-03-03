@@ -8,7 +8,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 import { getCustomersSpendLeaderboard } from "@/lib/actions/customers";
 
-export const revalidate = 60;
+// 强制动态渲染，避免构建时查询数据库
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "顾客消费榜",

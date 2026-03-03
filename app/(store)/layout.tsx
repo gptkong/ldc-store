@@ -5,6 +5,9 @@ import { Footer } from "@/components/store/footer";
 import { Toaster } from "@/components/ui/sonner";
 import { getSystemSettings } from "@/lib/actions/system-settings";
 
+// 强制动态渲染，避免构建时查询数据库
+export const dynamic = "force-dynamic";
+
 // 为什么这样做：同一路由渲染时，layout 的 generateMetadata 与 layout 本体会各自调用一次；用 request 级 memoization 避免重复查库。
 const getSystemSettingsCached = cache(getSystemSettings);
 
