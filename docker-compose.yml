@@ -1,0 +1,47 @@
+# ============================================
+# LDC Store - Docker Compose Configuration
+# ============================================
+# Usage:
+#   cp .env.docker.example .env.docker
+#   docker compose up -d
+#
+# Services:
+#   - db: PostgreSQL 16 database
+#   - app: Next.js application (builds from ./Dockerfile)
+
+services:
+  # ============================================
+  # PostgreSQL Database
+  # ============================================
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ============================================
+  # Next.js Application
+  # ============================================
+  app:
+    build: .
+    image: ldc-store:local
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    env_file:
+      - .env.docker
+    # DATABASE_URL is set in .env.docker, pointing to 'db' hostname
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
