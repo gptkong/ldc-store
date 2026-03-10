@@ -1,96 +1,98 @@
-# LDC Store - 自动发卡系统
+# LDC Store - Automated Card Delivery System
 
-基于 Next.js 16 的虚拟商品自动发卡平台，支持 Linux DO Credit 积分支付。
+A virtual goods automated card delivery platform built on Next.js 16, supporting Linux DO Credit payments.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fgptkong%2Fldc-store&env=DATABASE_URL,AUTH_SECRET,ADMIN_PASSWORD,LDC_CLIENT_ID,LDC_CLIENT_SECRET,LINUXDO_CLIENT_ID,LINUXDO_CLIENT_SECRET,STATS_TIMEZONE&envDescription=DATABASE_URL%3A%20PostgreSQL%20%7C%20AUTH_SECRET%3A%20openssl%20rand%20-base64%2032%20%7C%20ADMIN_PASSWORD%3A%20管理员密码%20%7C%20LDC_CLIENT_ID%2FLDC_CLIENT_SECRET%3A%20支付凭证%20%7C%20LINUXDO_CLIENT_ID%2FLINUXDO_CLIENT_SECRET%3A%20OAuth登录凭证%20%7C%20STATS_TIMEZONE%3A%20统计口径时区（默认%20Asia%2FShanghai）&envLink=https%3A%2F%2Fgithub.com%2Fgptkong%2Fldc-store%2Fblob%2Fmain%2Fdocs%2FDEPLOY.md&project-name=ldc-store&repository-name=ldc-store)
+> 📖 [中文文档 README](./docs/README.zh-CN.md)
 
-> 📚 **详细部署指南**: [docs/DEPLOY.md](./docs/DEPLOY.md)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fgptkong%2Fldc-store&env=DATABASE_URL,AUTH_SECRET,ADMIN_PASSWORD,LDC_CLIENT_ID,LDC_CLIENT_SECRET,LINUXDO_CLIENT_ID,LINUXDO_CLIENT_SECRET,STATS_TIMEZONE&envDescription=DATABASE_URL%3A%20PostgreSQL%20%7C%20AUTH_SECRET%3A%20openssl%20rand%20-base64%2032%20%7C%20ADMIN_PASSWORD%3A%20Admin%20Password%20%7C%20LDC_CLIENT_ID%2FLDC_CLIENT_SECRET%3A%20Payment%20Credentials%20%7C%20LINUXDO_CLIENT_ID%2FLINUXDO_CLIENT_SECRET%3A%20OAuth%20Login%20Credentials%20%7C%20STATS_TIMEZONE%3A%20Stats%20Timezone%20(default%20Asia%2FShanghai)&envLink=https%3A%2F%2Fgithub.com%2Fgptkong%2Fldc-store%2Fblob%2Fmain%2Fdocs%2FDEPLOY.md&project-name=ldc-store&repository-name=ldc-store)
 
-## ✨ 特性
+> 📚 **Detailed Deployment Guide**: [docs/DEPLOY.md](./docs/DEPLOY.md)
 
-### 🛒 前台商店
-- **商品展示** - 网格布局商品列表、分类导航、客户端分类筛选（无需刷新页面）
-- **商品详情** - 支持 Markdown 富文本、热门标签、折扣价格、详情图轮播
-- **库存状态** - 实时库存数量显示、销量统计
-- **公告系统** - 首页公告轮播横幅（支持 Markdown、定时上下线）
-- **全文搜索** - Header 搜索入口 + 结果页筛选/多种排序/分页
-- **催补货功能** - 缺货时用户可申请催补货，显示催补货人数和最近请求者头像
-- **消费排行榜** - TOP 50 顾客消费排行榜（`/leaderboard`），展示累计消费金额和订单数
-- **我的订单** - 查看个人历史订单、订单详情、卡密信息（`/order/my`）
-- **支付凭证** - 生成可分享的支付成功凭证（`/order/receipt/:orderNo`），不含敏感信息
-- **ISR 缓存** - 60 秒增量静态再生成，提升页面加载性能
+## ✨ Features
 
-### 🔐 登录与权限
-- **用户下单** - 使用 Linux DO Connect OAuth2 登录，下单/查单与账号绑定
-- **后台管理** - 管理员密码登录（`ADMIN_PASSWORD`），或配置 `ADMIN_USERNAMES` 允许指定 Linux DO 用户名以管理员身份登录后台
-- **会话管理** - 基于 NextAuth v5 的 JWT 会话策略
+### 🛒 Storefront
+- **Product Display** - Grid layout product listings, category navigation, client-side category filtering (no page reload)
+- **Product Details** - Markdown rich text support, popular tags, discount pricing, image carousel
+- **Stock Status** - Real-time inventory count display, sales statistics
+- **Announcement System** - Homepage announcement carousel banner (supports Markdown, scheduled publish/unpublish)
+- **Full-Text Search** - Header search entry + results page filtering / multiple sort options / pagination
+- **Restock Request** - Users can request restocking when out of stock, showing request count and recent requester avatars
+- **Leaderboard** - TOP 50 customer spending leaderboard (`/leaderboard`), showing cumulative spending and order count
+- **My Orders** - View personal order history, order details, card key information (`/order/my`)
+- **Payment Receipt** - Generate shareable payment success receipts (`/order/receipt/:orderNo`), no sensitive info included
+- **ISR Cache** - 60-second Incremental Static Regeneration for improved page load performance
 
-### 💳 自动发卡
-- 支持 Linux DO Credit 积分支付
-- 支付成功后自动发放卡密
-- 订单超时自动释放锁定库存（懒加载 + 节流策略）
-- 支付回调幂等处理，防止重复投递
-- 卡密锁定使用数据库事务 + `FOR UPDATE` 保证原子性
+### 🔐 Login & Permissions
+- **User Orders** - Login via Linux DO Connect OAuth2, orders/queries linked to account
+- **Admin Panel** - Admin password login (`ADMIN_PASSWORD`), or configure `ADMIN_USERNAMES` to allow specific Linux DO usernames to log in as admin
+- **Session Management** - JWT session strategy based on NextAuth v5
 
-### 🔄 退款功能
-- 用户可申请退款（需填写退款原因），管理员审核
-- **客户端模式**（默认）：通过浏览器表单提交绕过 CORS/CF 限制（无需代理）
-- **代理模式**：通过服务端代理调用 LDC Credit 退款接口
-- **禁用模式**：可关闭退款功能
-- 退款成功后自动回收卡密（状态恢复为 available）
+### 💳 Automated Card Delivery
+- Supports Linux DO Credit payments
+- Automatic card key delivery upon successful payment
+- Auto-release of locked inventory on order timeout (lazy load + throttle strategy)
+- Idempotent payment callback handling to prevent duplicate deliveries
+- Card key locking uses database transactions + `FOR UPDATE` for atomicity
 
-### 📦 库存管理
-- **批量导入** - 支持换行符/逗号分隔，自动去重（可选）
-- **去重检测** - 输入去重 + 数据库去重，导入统计报告
-- **库存预警** - 低于阈值的商品自动提醒（默认 < 10）
-- **卡密编辑** - 修改卡密内容（仅限可用状态）
-- **批量删除** - 删除未售出卡密
-- **重置锁定** - 释放锁定状态的卡密
-- **导出功能** - 按状态导出卡密列表（CSV）
-- **清理重复** - 自动清理重复卡密（保留最早创建的）
+### 🔄 Refund System
+- Users can apply for refunds (with reason), reviewed by admin
+- **Client Mode** (default): Bypasses CORS/CF restrictions via browser form submission (no proxy needed)
+- **Proxy Mode**: Calls LDC Credit refund API via server-side proxy
+- **Disabled Mode**: Refund feature can be turned off
+- Automatic card key reclamation on successful refund (status restored to available)
 
-### 📊 后台管理
-- **仪表盘** - 今日销售额/订单数（环比增长）、待办事项、销售趋势图（7 天）、最近订单、库存预警
-- **商品管理** - 创建/编辑/复制商品、批量上架/下架/删除、设置价格/原价、热门标记、购买数量限制、排序权重
-- **分类管理** - 分类增删改、启用/停用、排序、商品数量统计
-- **订单管理** - 订单列表、多维度筛选（状态/支付方式/搜索）、订单详情、手动完成订单、批量删除、CSV 导出（最多 5000 条）
-- **退款审核** - 查看退款申请详情、通过/拒绝退款、管理员备注
-- **卡密管理** - 按商品查看库存、批量导入/删除/导出、状态筛选
-- **公告管理** - 公告增删改、Markdown 内容、生效时间段、启用/停用、排序
-- **客户管理** - 客户列表、订单数/累计消费统计
-- **系统配置** - 网站名称/描述/图标、订单过期时间、Telegram 通知配置
+### 📦 Inventory Management
+- **Bulk Import** - Supports newline/comma-separated input, optional auto-deduplication
+- **Duplicate Detection** - Input dedup + database dedup, import summary report
+- **Stock Alerts** - Automatic alerts for products below threshold (default < 10)
+- **Card Key Editing** - Modify card key content (available status only)
+- **Bulk Delete** - Delete unsold card keys
+- **Reset Locked** - Release card keys in locked status
+- **Export** - Export card key list by status (CSV)
+- **Clean Duplicates** - Automatically clean duplicate card keys (keeps earliest created)
 
-### 🔔 通知系统
-- **Telegram 通知** - 催补货请求实时推送（商品名称、库存、请求用户、时间）
-- **测试功能** - 后台可测试 Telegram 配置是否正确
-- **异步发送** - 不阻塞主流程，静默失败不影响业务
+### 📊 Admin Panel
+- **Dashboard** - Today's sales/orders (day-over-day growth), to-dos, 7-day sales trend chart, recent orders, stock alerts
+- **Product Management** - Create/edit/copy products, bulk publish/unpublish/delete, set price/original price, popular marking, purchase quantity limit, sort weight
+- **Category Management** - Add/edit/delete categories, enable/disable, sort, product count stats
+- **Order Management** - Order list, multi-dimensional filtering (status/payment method/search), order details, manual order completion, bulk delete, CSV export (up to 5,000 records)
+- **Refund Review** - View refund application details, approve/reject refunds, admin notes
+- **Card Key Management** - View inventory by product, bulk import/delete/export, status filtering
+- **Announcement Management** - Add/edit/delete announcements, Markdown content, effective time range, enable/disable, sort
+- **Customer Management** - Customer list, order count and cumulative spending stats
+- **System Config** - Site name/description/icon, order expiration time, Telegram notification settings
 
-### 🎨 现代 UI
-- 基于 Shadcn/UI + Tailwind CSS v4
-- 支持深色/浅色模式切换
-- 响应式设计，移动端友好
-- 30+ 通用 UI 组件
+### 🔔 Notification System
+- **Telegram Notifications** - Real-time push for restock requests (product name, stock, requesting user, time)
+- **Test Function** - Test Telegram configuration from the admin panel
+- **Async Delivery** - Non-blocking, silent failure does not affect business flow
 
-## 🛠️ 技术栈
+### 🎨 Modern UI
+- Built on Shadcn/UI + Tailwind CSS v4
+- Dark/light mode toggle
+- Responsive design, mobile-friendly
+- 30+ general-purpose UI components
+
+## 🛠️ Tech Stack
 
 - **Framework:** Next.js 16 (App Router, Server Actions)
 - **Language:** TypeScript
-- **Database:** PostgreSQL (推荐 Neon/Supabase)
+- **Database:** PostgreSQL (Neon/Supabase recommended)
 - **ORM:** Drizzle ORM
 - **UI:** Shadcn/UI + Tailwind CSS
 - **Auth:** NextAuth.js v5
 - **Payment:** Linux DO Credit
 
-## 🚀 一键部署到 Vercel
+## 🚀 One-Click Deploy to Vercel
 
-1. 点击上方 "Deploy with Vercel" 按钮
-2. 在 Vercel 中配置环境变量
-3. 等待部署完成
-4. 初始化数据库表结构（默认 Production 部署会自动执行 `pnpm db:baseline && pnpm db:migrate`，失败时再手动执行）
+1. Click the "Deploy with Vercel" button above
+2. Configure environment variables in Vercel
+3. Wait for deployment to complete
+4. Initialize database schema (Production deployments automatically run `pnpm db:baseline && pnpm db:migrate`; run manually if it fails)
 
-## 📦 本地开发
+## 📦 Local Development
 
-### 1. 克隆项目
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/gptkong/ldc-store.git
@@ -98,269 +100,269 @@ cd ldc-store
 pnpm install
 ```
 
-### 2. 配置环境变量
+### 2. Configure Environment Variables
 
-复制环境变量样例文件并修改：
+Copy the example env file and edit it:
 
 ```bash
 cp .env.example .env
 ```
 
-编辑 `.env` 文件，填写实际配置值：
+Edit `.env` with your actual values:
 
 ```env
-# 数据库 (推荐 Neon: https://neon.tech)
+# Database (Neon recommended: https://neon.tech)
 DATABASE_URL="postgresql://user:password@host/database?sslmode=require"
 
-# NextAuth 密钥 (生成: openssl rand -base64 32)
+# NextAuth secret (generate: openssl rand -base64 32)
 AUTH_SECRET="your-auth-secret"
 AUTH_TRUST_HOST=true
 
-# 管理员密码
+# Admin password
 ADMIN_PASSWORD="your-admin-password"
 
-# 管理员用户名白名单（可选，逗号分隔；命中则授予 admin 权限）
+# Admin username whitelist (optional, comma-separated; grants admin role on match)
 ADMIN_USERNAMES="admin1,admin2"
 
-# Linux DO Credit 支付
+# Linux DO Credit payment
 LDC_CLIENT_ID="your_client_id"
 LDC_CLIENT_SECRET="your_client_secret"
 LDC_GATEWAY="https://credit.linux.do/epay"
 
-# Linux DO OAuth2 登录（用户下单/查单必须）
+# Linux DO OAuth2 login (required for user orders/queries)
 LINUXDO_CLIENT_ID="your_linuxdo_client_id"
 LINUXDO_CLIENT_SECRET="your_linuxdo_client_secret"
 
-# 网站名称（可选，显示在 Header 标题和页面标题中）
+# Site name (optional, shown in header title and page titles)
 NEXT_PUBLIC_SITE_NAME="LDC Store"
 
-# 网站描述（可选）
-NEXT_PUBLIC_SITE_DESCRIPTION="基于 Linux DO Credit 的虚拟商品自动发卡平台"
+# Site description (optional, used for SEO)
+NEXT_PUBLIC_SITE_DESCRIPTION="Virtual goods automated card delivery platform powered by Linux DO Credit"
 
-# 订单过期时间（分钟）
+# Order expiration time (minutes)
 ORDER_EXPIRE_MINUTES=5
 
-# 统计口径时区（可选，默认 Asia/Shanghai / UTC+8）
-# 用于后台仪表盘“今日销售额”等统计的日界线口径
+# Stats timezone (optional, default Asia/Shanghai / UTC+8)
+# Used for the day boundary in "Today's Sales" and similar dashboard stats
 STATS_TIMEZONE="Asia/Shanghai"
 ```
 
-### 3. 初始化数据库
+### 3. Initialize the Database
 
 ```bash
-# 新库：执行迁移创建表结构
+# New database: run migrations to create schema
 pnpm db:migrate
 
-# 旧库：如果历史上用过 db:push（没有迁移记录），先 baseline 再 migrate
+# Existing database: if you previously used db:push (no migration history), baseline first
 # pnpm db:baseline
 # pnpm db:migrate
 
-# 初始化示例数据（可选）
+# Seed example data (optional)
 pnpm db:seed
 ```
 
-### 4. 启动开发服务器
+### 4. Start the Development Server
 
 ```bash
 pnpm dev
 ```
 
-访问:
-- 前台商店: http://localhost:3000
-- 后台管理: http://localhost:3000/admin
+Visit:
+- Storefront: http://localhost:3000
+- Admin panel: http://localhost:3000/admin
 
-### 5. 测试（可选）
+### 5. Testing (Optional)
 
 ```bash
 pnpm test
 pnpm test:coverage
 ```
 
-更多测试说明与覆盖率基线阈值：`docs/TESTING_PLAN.md`（CI 会上传 `coverage/` 产物，可直接打开 `coverage/index.html` 查看报告）
+More testing info and coverage baseline thresholds: `docs/TESTING_PLAN.md` (CI uploads `coverage/` artifacts; open `coverage/index.html` locally to view the report)
 
-### 管理员登录
+### Admin Login
 
-访问 `/admin`：
-- 管理员密码登录：输入 `ADMIN_PASSWORD`
-- Linux DO 登录（可选）：配置 `ADMIN_USERNAMES` 后，白名单用户可直接登录后台
+Visit `/admin`:
+- Password login: enter `ADMIN_PASSWORD`
+- Linux DO login (optional): configure `ADMIN_USERNAMES` to allow whitelisted users to log in as admin
 
-## 🔧 环境变量说明
+## 🔧 Environment Variables
 
-| 变量 | 必填 | 默认值 | 说明 |
-|------|------|--------|------|
-| `DATABASE_URL` | ✅ | - | PostgreSQL 连接字符串 |
-| `AUTH_SECRET` | ✅ | - | NextAuth 加密密钥（运行 `openssl rand -base64 32` 生成）|
-| `AUTH_TRUST_HOST` | ✅ | `true` | 信任主机（Vercel 部署必须为 true）|
-| `ADMIN_PASSWORD` | ✅ | - | 管理员登录密码 |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | ✅ | - | PostgreSQL connection string |
+| `AUTH_SECRET` | ✅ | - | NextAuth encryption key (run `openssl rand -base64 32`) |
+| `AUTH_TRUST_HOST` | ✅ | `true` | Trust host header (must be true for Vercel) |
+| `ADMIN_PASSWORD` | ✅ | - | Admin login password |
 | `LDC_CLIENT_ID` | ✅ | - | Linux DO Credit Client ID |
 | `LDC_CLIENT_SECRET` | ✅ | - | Linux DO Credit Client Secret |
-| `LDC_GATEWAY` | ❌ | `https://credit.linux.do/epay` | 支付网关地址 |
-| `LDC_REFUND_MODE` | ❌ | `client` | 退款模式：`client`（客户端）/ `proxy`（代理）/ `disabled`（禁用）|
-| `LDC_PROXY_URL` | ❌ | - | LDC API 代理地址（代理模式时使用，绕过 Cloudflare）|
-| `ADMIN_USERNAMES` | ❌ | - | Linux DO 管理员用户名白名单（逗号分隔），命中则授予 `admin` 角色 |
-| `LINUXDO_CLIENT_ID` | ✅ | - | Linux DO OAuth2 Client ID（用户下单/查单必须）|
-| `LINUXDO_CLIENT_SECRET` | ✅ | - | Linux DO OAuth2 Client Secret（用户下单/查单必须）|
-| `LINUXDO_AUTHORIZATION_URL` | ❌ | - | 自定义 OAuth2 授权端点 |
-| `LINUXDO_TOKEN_URL` | ❌ | - | 自定义 OAuth2 Token 端点 |
-| `LINUXDO_USERINFO_URL` | ❌ | - | 自定义 OAuth2 用户信息端点 |
-| `NEXT_PUBLIC_SITE_NAME` | ❌ | - | 网站名称（显示在 Header 和页面标题）|
-| `NEXT_PUBLIC_SITE_DESCRIPTION` | ❌ | - | 网站描述（用于 SEO）|
-| `ORDER_EXPIRE_MINUTES` | ❌ | `5` | 订单过期时间（分钟）|
-| `STATS_TIMEZONE` | ❌ | `Asia/Shanghai` | 统计口径时区（用于“今日销售额”等报表口径，建议使用 IANA 时区名）|
+| `LDC_GATEWAY` | ❌ | `https://credit.linux.do/epay` | Payment gateway URL |
+| `LDC_REFUND_MODE` | ❌ | `client` | Refund mode: `client` / `proxy` / `disabled` |
+| `LDC_PROXY_URL` | ❌ | - | LDC API proxy URL (proxy mode, bypasses Cloudflare) |
+| `ADMIN_USERNAMES` | ❌ | - | Linux DO admin username whitelist (comma-separated), grants `admin` role |
+| `LINUXDO_CLIENT_ID` | ✅ | - | Linux DO OAuth2 Client ID (required for user orders/queries) |
+| `LINUXDO_CLIENT_SECRET` | ✅ | - | Linux DO OAuth2 Client Secret (required for user orders/queries) |
+| `LINUXDO_AUTHORIZATION_URL` | ❌ | - | Custom OAuth2 authorization endpoint |
+| `LINUXDO_TOKEN_URL` | ❌ | - | Custom OAuth2 token endpoint |
+| `LINUXDO_USERINFO_URL` | ❌ | - | Custom OAuth2 user info endpoint |
+| `NEXT_PUBLIC_SITE_NAME` | ❌ | - | Site name (shown in header and page titles) |
+| `NEXT_PUBLIC_SITE_DESCRIPTION` | ❌ | - | Site description (for SEO) |
+| `ORDER_EXPIRE_MINUTES` | ❌ | `5` | Order expiration time (minutes) |
+| `STATS_TIMEZONE` | ❌ | `Asia/Shanghai` | Stats timezone for "today" reports (IANA timezone name recommended) |
 
-### 🕒 时间与统计口径
+### 🕒 Time & Statistics
 
-- 数据库存储使用 `timestamp with time zone`（timestamptz），内部以 UTC 存储时间戳
-- 前端展示时间按用户浏览器本地时区显示（例如订单列表时间）
-- 后台“今日”类统计的日界线由 `STATS_TIMEZONE` 决定，默认中国时区（`Asia/Shanghai`）
+- Database stores timestamps using `timestamp with time zone` (timestamptz), stored internally as UTC
+- Frontend displays times in the user's local browser timezone (e.g., order list timestamps)
+- "Today" dashboard stats use the day boundary defined by `STATS_TIMEZONE`, defaulting to China time (`Asia/Shanghai`)
 
-## 📝 Linux DO Credit 配置
+## 📝 Linux DO Credit Configuration
 
-1. 访问 [Linux DO Credit 控制台](https://credit.linux.do)
-2. 创建新应用，获取 `pid` 和 `key`
-3. 配置回调地址:
+1. Visit the [Linux DO Credit Console](https://credit.linux.do)
+2. Create a new application to get your `pid` and `key`
+3. Configure callback addresses:
    - **Notify URL:** `https://your-domain.com/api/payment/notify`
    - **Return URL:** `https://your-domain.com/order/result`
 
-## 🔄 退款功能配置
+## 🔄 Refund Configuration
 
-由于 Linux DO Credit 的 API 接口受 Cloudflare 保护，从 Vercel 等服务器端直接调用会被拦截。本项目支持两种退款模式：
+Because the Linux DO Credit API is protected by Cloudflare, direct server-side calls from Vercel and similar hosts will be blocked. This project supports two refund modes:
 
-### 退款模式
+### Refund Modes
 
-| 模式 | 环境变量 | 说明 |
-|------|---------|------|
-| **客户端模式** | `LDC_REFUND_MODE=client`（默认） | 通过浏览器表单提交绕过 CORS/CF 限制，无需代理 |
-| **代理模式** | `LDC_REFUND_MODE=proxy` + `LDC_PROXY_URL` | 通过服务端代理调用 LDC API |
-| **禁用** | `LDC_REFUND_MODE=disabled` | 禁用退款功能 |
+| Mode | Environment Variable | Description |
+|------|---------------------|-------------|
+| **Client Mode** | `LDC_REFUND_MODE=client` (default) | Bypasses CORS/CF via browser form submission, no proxy needed |
+| **Proxy Mode** | `LDC_REFUND_MODE=proxy` + `LDC_PROXY_URL` | Calls LDC API via server-side proxy |
+| **Disabled** | `LDC_REFUND_MODE=disabled` | Disables the refund feature |
 
-### 客户端模式（推荐）
+### Client Mode (Recommended)
 
-默认启用，无需额外配置。工作原理：
+Enabled by default, no extra configuration needed. How it works:
 
-1. 管理员点击"通过退款"后打开新窗口
-2. 新窗口通过 HTML 表单 POST 提交到 LDC API（表单提交不受 CORS 限制）
-3. 窗口内显示 LDC API 的响应结果
-4. 管理员确认退款成功后，系统更新订单状态
+1. Admin clicks "Approve Refund", which opens a new window
+2. The new window POSTs to the LDC API via an HTML form (form submission is not subject to CORS restrictions)
+3. The window displays the LDC API response
+4. After admin confirms the refund, the system updates the order status
 
-> 💡 **提示**：如遇 Cloudflare 验证，管理员需先在浏览器中访问 `credit.linux.do` 完成验证，然后重试退款操作。
+> 💡 **Tip**: If you encounter a Cloudflare challenge, the admin should first visit `credit.linux.do` in the browser to pass verification, then retry the refund.
 
-### 代理模式（可选）
+### Proxy Mode (Optional)
 
-如果客户端模式无法满足需求，可以配置代理服务：
+If client mode doesn't meet your needs, you can configure a proxy service:
 
-1. 部署 [gin-flaresolverr-proxy](https://github.com/gptkong/gin-flaresolverr-proxy) 服务
-2. 在环境变量中配置：
+1. Deploy [gin-flaresolverr-proxy](https://github.com/gptkong/gin-flaresolverr-proxy)
+2. Configure the environment variables:
 
 ```env
 LDC_REFUND_MODE=proxy
 LDC_PROXY_URL="https://your-proxy-domain.com/api"
 ```
 
-> ⚠️ **注意**：代理功能可能会随着 Linux DO Credit 官方接口变更而失效，请关注上游仓库更新。
+> ⚠️ **Note**: Proxy functionality may break if the Linux DO Credit API changes. Monitor the upstream repository for updates.
 
-## 🔑 Linux DO OAuth2 登录配置
+## 🔑 Linux DO OAuth2 Login Configuration
 
-用户下单/查单需要使用 Linux DO 账号登录（OAuth2）。
+Users must log in with a Linux DO account (OAuth2) to place or view orders.
 
-### 申请接入
+### Apply for Access
 
-1. 访问 [Linux DO Connect](https://connect.linux.do) 控制台
-2. 点击 **我的应用接入** - **申请新接入**
-3. 填写应用信息，**回调地址** 填写：`https://your-domain.com/api/auth/callback/linux-do`
-4. 申请成功后获取 `Client ID` 和 `Client Secret`
+1. Visit the [Linux DO Connect](https://connect.linux.do) console
+2. Click **My App Integrations** → **Apply for New Integration**
+3. Fill in app information; set **Callback URL** to: `https://your-domain.com/api/auth/callback/linux-do`
+4. After approval, obtain your `Client ID` and `Client Secret`
 
-### 环境变量配置
+### Environment Variables
 
-在 `.env` 中配置:
+Add to `.env`:
 
 ```env
 LINUXDO_CLIENT_ID="your_client_id"
 LINUXDO_CLIENT_SECRET="your_client_secret"
 ```
 
-### 可获取的用户信息
+### Available User Fields
 
-| 字段 | 说明 |
-|------|------|
-| `id` | 用户唯一标识（不可变） |
-| `username` | 论坛用户名 |
-| `name` | 论坛用户昵称（可变） |
-| `avatar_template` | 用户头像模板URL（支持多种尺寸） |
-| `active` | 账号活跃状态 |
-| `trust_level` | 信任等级（0-4） |
-| `silenced` | 禁言状态 |
+| Field | Description |
+|-------|-------------|
+| `id` | Unique user identifier (immutable) |
+| `username` | Forum username |
+| `name` | Forum display name (mutable) |
+| `avatar_template` | User avatar template URL (multiple sizes supported) |
+| `active` | Account active status |
+| `trust_level` | Trust level (0–4) |
+| `silenced` | Silenced status |
 
-### OAuth2 端点（默认值，一般无需修改）
+### OAuth2 Endpoints (Defaults, usually no change needed)
 
-| 端点 | 地址 |
-|------|------|
-| 授权端点 | `https://connect.linux.do/oauth2/authorize` |
-| Token 端点 | `https://connect.linux.do/oauth2/token` |
-| 用户信息端点 | `https://connect.linux.do/api/user` |
+| Endpoint | URL |
+|----------|-----|
+| Authorization | `https://connect.linux.do/oauth2/authorize` |
+| Token | `https://connect.linux.do/oauth2/token` |
+| User Info | `https://connect.linux.do/api/user` |
 
-如需自定义端点地址，可配置以下环境变量：
+To customize endpoints, configure:
 - `LINUXDO_AUTHORIZATION_URL`
 - `LINUXDO_TOKEN_URL`
 - `LINUXDO_USERINFO_URL`
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 ldc-store/
 ├── app/
-│   ├── (store)/          # 前台商店
-│   ├── (admin)/          # 后台管理
-│   └── api/              # API 路由
+│   ├── (store)/          # Storefront
+│   ├── (admin)/          # Admin panel
+│   └── api/              # API routes
 ├── components/
 │   ├── ui/               # Shadcn UI
-│   ├── store/            # 前台组件
-│   └── admin/            # 后台组件
+│   ├── store/            # Storefront components
+│   └── admin/            # Admin components
 ├── lib/
-│   ├── db/               # 数据库配置
+│   ├── db/               # Database config
 │   ├── actions/          # Server Actions
-│   ├── payment/          # 支付集成
-│   └── validations/      # Zod 验证
+│   ├── payment/          # Payment integration
+│   └── validations/      # Zod validations
 └── ...
 ```
 
-## 🗃️ 数据库命令
+## 🗃️ Database Commands
 
 ```bash
-# 生成迁移文件
+# Generate migration files
 pnpm db:generate
 
-# 旧库基线化（历史用过 db:push / 没有迁移记录时使用）
+# Baseline existing database (use when you previously used db:push with no migration history)
 pnpm db:baseline
 
-# 推送表结构（不推荐；会绕过迁移记录，后续 migrate 可能会失败）
+# Push schema (not recommended; bypasses migration history, may break future migrates)
 pnpm db:push
 
-# 运行迁移（推荐：新库/生产环境都应使用）
+# Run migrations (recommended for new and production databases)
 pnpm db:migrate
 
-# 打开数据库可视化工具
+# Open database visualization tool
 pnpm db:studio
 
-# 初始化种子数据
+# Seed example data
 pnpm db:seed
 
-# 重置数据库（危险！）
+# Reset database (DANGEROUS!)
 pnpm db:reset
 ```
 
-## 🖼️ 品牌图标与 favicon
+## 🖼️ Brand Icon & Favicon
 
-仓库内置了一个生成脚本：输入一张 **正方形 PNG**，输出品牌图标与 `favicon.ico`：
+The repository includes a generation script: provide a **square PNG** and it outputs brand icons and `favicon.ico`:
 
-- 输出：`public/ldc-mart.png`、`app/favicon.ico`
-- 依赖：`sharp`（已在 devDependencies 中声明）
+- Output: `public/ldc-mart.png`, `app/favicon.ico`
+- Dependency: `sharp` (declared in devDependencies)
 
 ```bash
-# 使用自定义输入图（正方形 PNG）
+# Use a custom input image (square PNG)
 pnpm tsx scripts/generate-favicon.ts path/to/icon.png
 
-# 不指定参数时会尝试使用仓库内置图片（如 public/ldc-mart.png）
+# Without an argument, tries to use the built-in image (e.g. public/ldc-mart.png)
 pnpm tsx scripts/generate-favicon.ts
 ```
 
